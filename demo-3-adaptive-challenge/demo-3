@@ -1,0 +1,1276 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Adaptive Challenge Lab</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+    <style>
+      :root {
+        --bg: #f5f7fb;
+        --surface: #ffffff;
+        --surface-2: #f8fafc;
+        --text: #0f172a;
+        --muted: #475569;
+        --border: #dbe4f0;
+        --accent: #2563eb;
+        --accent-soft: #dbeafe;
+        --easy: #0f766e;
+        --easy-soft: #ccfbf1;
+        --medium: #a16207;
+        --medium-soft: #fef3c7;
+        --hard: #b91c1c;
+        --hard-soft: #fee2e2;
+        --success: #15803d;
+        --success-soft: #dcfce7;
+        --danger: #b91c1c;
+        --danger-soft: #fee2e2;
+        --shadow: 0 18px 44px rgba(15, 23, 42, 0.08);
+        --radius: 18px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system,
+          BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        color: var(--text);
+        background: radial-gradient(
+            circle at top left,
+            rgba(37, 99, 235, 0.12),
+            transparent 28%
+          ),
+          radial-gradient(
+            circle at top right,
+            rgba(14, 165, 233, 0.08),
+            transparent 22%
+          ),
+          var(--bg);
+        min-height: 100vh;
+      }
+
+      .shell {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 28px;
+      }
+
+      .hero {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        align-items: flex-start;
+        margin-bottom: 20px;
+      }
+
+      .eyebrow {
+        margin: 0 0 8px;
+        font-size: 0.82rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--accent);
+        font-weight: 700;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(2rem, 3vw, 2.75rem);
+        line-height: 1.05;
+      }
+
+      .lede {
+        margin: 12px 0 0;
+        max-width: 720px;
+        color: var(--muted);
+        font-size: 1.02rem;
+        line-height: 1.5;
+      }
+
+      .hero-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-self: center;
+        justify-content: flex-end;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.72);
+        border-radius: 999px;
+        font-size: 0.92rem;
+        color: var(--muted);
+      }
+
+      .badge strong {
+        color: var(--text);
+      }
+
+      .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 999px;
+        background: #94a3b8;
+        display: inline-block;
+      }
+
+      .dot.ready {
+        background: var(--success);
+        box-shadow: 0 0 0 6px rgba(21, 128, 61, 0.08);
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.95fr);
+        gap: 20px;
+      }
+
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+      }
+
+      .main {
+        padding: 20px;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .stat {
+        padding: 14px 16px;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+      }
+
+      .stat-label {
+        font-size: 0.78rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 8px;
+      }
+
+      .stat-value {
+        font-size: 1.2rem;
+        font-weight: 700;
+      }
+
+      .question-card {
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+        border-radius: 20px;
+        padding: 20px;
+      }
+
+      .question-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px 12px;
+        border-radius: 999px;
+        font-size: 0.86rem;
+        font-weight: 700;
+      }
+
+      .pill.easy {
+        color: var(--easy);
+        background: var(--easy-soft);
+      }
+      .pill.medium {
+        color: var(--medium);
+        background: var(--medium-soft);
+      }
+      .pill.hard {
+        color: var(--hard);
+        background: var(--hard-soft);
+      }
+      .pill.neutral {
+        color: #334155;
+        background: #e2e8f0;
+      }
+
+      .round-chip {
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      h2 {
+        font-size: clamp(1.45rem, 2vw, 1.9rem);
+        line-height: 1.25;
+        margin: 0 0 8px;
+      }
+
+      .question-support {
+        margin: 0 0 18px;
+        color: var(--muted);
+        font-size: 0.98rem;
+      }
+
+      .answer-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .answer-btn {
+        text-align: left;
+        padding: 14px 16px;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        font-size: 1rem;
+        line-height: 1.4;
+        cursor: pointer;
+        transition: transform 120ms ease, border-color 120ms ease,
+          box-shadow 120ms ease, background 120ms ease;
+      }
+
+      .answer-btn:hover:not(:disabled) {
+        transform: translateY(-1px);
+        border-color: #bfd1ea;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+      }
+
+      .answer-btn:disabled {
+        cursor: default;
+        opacity: 0.82;
+      }
+
+      .answer-btn.correct {
+        border-color: rgba(21, 128, 61, 0.35);
+        background: var(--success-soft);
+      }
+
+      .answer-btn.wrong {
+        border-color: rgba(185, 28, 28, 0.28);
+        background: var(--danger-soft);
+      }
+
+      .feedback {
+        margin-top: 16px;
+        padding: 14px 16px;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        min-height: 86px;
+      }
+
+      .feedback strong {
+        display: block;
+        margin-bottom: 6px;
+      }
+
+      .feedback.success {
+        background: var(--success-soft);
+        border-color: rgba(21, 128, 61, 0.25);
+      }
+
+      .feedback.error {
+        background: var(--danger-soft);
+        border-color: rgba(185, 28, 28, 0.22);
+      }
+
+      .actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 18px;
+      }
+
+      button.primary,
+      button.secondary {
+        appearance: none;
+        border: none;
+        border-radius: 14px;
+        padding: 13px 16px;
+        font-size: 0.98rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      button.primary {
+        background: var(--accent);
+        color: white;
+        box-shadow: 0 10px 26px rgba(37, 99, 235, 0.28);
+      }
+
+      button.secondary {
+        background: #e2e8f0;
+        color: #0f172a;
+      }
+
+      .aside {
+        display: grid;
+        gap: 16px;
+        align-self: start;
+      }
+
+      .aside-card {
+        padding: 18px;
+      }
+
+      .aside-card h3 {
+        margin: 0 0 4px;
+        font-size: 1rem;
+      }
+
+      .aside-subtle {
+        color: var(--muted);
+        font-size: 0.92rem;
+        line-height: 1.45;
+        margin: 0 0 14px;
+      }
+
+      .loop-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .loop-item {
+        padding: 12px 13px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--surface-2);
+      }
+
+      .loop-item .k {
+        color: var(--muted);
+        font-size: 0.77rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 6px;
+      }
+
+      .loop-item .v {
+        font-size: 0.98rem;
+        line-height: 1.45;
+      }
+
+      .prob-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .prob-row {
+        display: grid;
+        grid-template-columns: 62px 1fr 56px;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .prob-track {
+        height: 11px;
+        border-radius: 999px;
+        background: #e2e8f0;
+        overflow: hidden;
+      }
+
+      .prob-fill {
+        height: 100%;
+        border-radius: inherit;
+        width: 0;
+        transition: width 220ms ease;
+      }
+
+      .prob-fill.easy {
+        background: #14b8a6;
+      }
+      .prob-fill.medium {
+        background: #f59e0b;
+      }
+      .prob-fill.hard {
+        background: #ef4444;
+      }
+
+      .session-log {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 10px;
+        max-height: 280px;
+        overflow: auto;
+      }
+
+      .session-log li {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--surface-2);
+        padding: 12px 13px;
+        font-size: 0.95rem;
+        line-height: 1.45;
+      }
+
+      .session-log strong {
+        display: inline-block;
+        margin-bottom: 4px;
+      }
+
+      .empty-state {
+        color: var(--muted);
+      }
+
+      .summary-card {
+        display: none;
+        margin-top: 16px;
+        padding: 16px;
+        border-radius: 18px;
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, #ffffff 0%, #eef5ff 100%);
+      }
+
+      .summary-card.show {
+        display: block;
+      }
+
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 12px;
+      }
+
+      .summary-grid .mini {
+        padding: 12px 13px;
+        background: rgba(255, 255, 255, 0.78);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+      }
+
+      .summary-grid .mini .label {
+        margin-bottom: 8px;
+      }
+
+      @media (max-width: 980px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 760px) {
+        .shell {
+          padding: 18px;
+        }
+
+        .hero {
+          flex-direction: column;
+        }
+
+        .stats,
+        .summary-grid,
+        .answer-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .question-top {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Mini Demo 3 · Adaptive Challenge Tuning</p>
+          <h1>Adaptive Challenge Lab</h1>
+          <p class="lede">
+            A browser-side model watches correctness and response time, then
+            adjusts the next round so the challenge feels more responsive
+            instead of fixed.
+          </p>
+        </div>
+        <div class="hero-badges">
+          <div class="badge">
+            <span class="dot" id="status-dot"></span
+            ><strong id="model-status">TensorFlow.js training…</strong>
+          </div>
+          <div class="badge">
+            <strong>Pattern:</strong> behavior → difficulty shift → visible
+            response
+          </div>
+        </div>
+      </header>
+
+      <div class="layout">
+        <section class="panel main">
+          <div class="stats">
+            <div class="stat">
+              <div class="stat-label">Current difficulty</div>
+              <div class="stat-value" id="difficulty-stat">Easy</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">Next prediction</div>
+              <div class="stat-value" id="prediction-stat">Waiting…</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">Accuracy</div>
+              <div class="stat-value" id="accuracy-stat">0%</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">Best streak</div>
+              <div class="stat-value" id="streak-stat">0</div>
+            </div>
+          </div>
+
+          <div class="question-card">
+            <div class="question-top">
+              <span class="pill easy" id="difficulty-pill">Easy</span>
+              <span class="round-chip" id="round-chip">Round 0 of 8</span>
+            </div>
+
+            <h2 id="question">
+              Start a session to see the challenge adapt in real time.
+            </h2>
+            <p class="question-support" id="question-support">
+              Answer quickly or slowly, answer correctly or incorrectly, and
+              watch how the next round shifts.
+            </p>
+
+            <div class="answer-grid" id="answer-grid"></div>
+
+            <div class="feedback" id="feedback">
+              <strong>How this demo works</strong>
+              A small TensorFlow.js model uses correctness, response time, and
+              current difficulty to choose what should happen next.
+            </div>
+
+            <div class="actions">
+              <button class="primary" id="start-btn" disabled>
+                Start session
+              </button>
+              <button class="secondary" id="next-btn" hidden>
+                Next question
+              </button>
+              <button class="secondary" id="reset-btn">Reset</button>
+            </div>
+
+            <div class="summary-card" id="summary-card">
+              <strong>Session recap</strong>
+              <div
+                id="summary-text"
+                class="aside-subtle"
+                style="margin-top: 8px; margin-bottom: 0; color: var(--text)"
+              ></div>
+              <div class="summary-grid">
+                <div class="mini">
+                  <div class="label">Final accuracy</div>
+                  <div class="stat-value" id="summary-accuracy">0%</div>
+                </div>
+                <div class="mini">
+                  <div class="label">Average response</div>
+                  <div class="stat-value" id="summary-time">0.0s</div>
+                </div>
+                <div class="mini">
+                  <div class="label">Highest level hit</div>
+                  <div class="stat-value" id="summary-level">Easy</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="aside">
+          <section class="panel aside-card">
+            <h3>Signal → decision → response</h3>
+            <p class="aside-subtle">
+              A lightweight view of what the model just observed and how the UI
+              reacted.
+            </p>
+            <div class="loop-list">
+              <div class="loop-item">
+                <div class="k">Observed signal</div>
+                <div class="v" id="signal-text">
+                  Waiting for the first answer.
+                </div>
+              </div>
+              <div class="loop-item">
+                <div class="k">Model decision</div>
+                <div class="v" id="decision-text">No prediction yet.</div>
+              </div>
+              <div class="loop-item">
+                <div class="k">Visible response</div>
+                <div class="v" id="response-text">
+                  The next round will update after each answer.
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel aside-card">
+            <h3>Next difficulty confidence</h3>
+            <p class="aside-subtle">
+              TensorFlow.js returns class probabilities for Easy, Medium, and
+              Hard.
+            </p>
+            <div class="prob-list">
+              <div class="prob-row">
+                <span>Easy</span>
+                <div class="prob-track">
+                  <div class="prob-fill easy" id="prob-easy"></div>
+                </div>
+                <span id="prob-easy-label">0%</span>
+              </div>
+              <div class="prob-row">
+                <span>Medium</span>
+                <div class="prob-track">
+                  <div class="prob-fill medium" id="prob-medium"></div>
+                </div>
+                <span id="prob-medium-label">0%</span>
+              </div>
+              <div class="prob-row">
+                <span>Hard</span>
+                <div class="prob-track">
+                  <div class="prob-fill hard" id="prob-hard"></div>
+                </div>
+                <span id="prob-hard-label">0%</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel aside-card">
+            <h3>Recent rounds</h3>
+            <p class="aside-subtle">
+              A compact session log so the difficulty shifts are easy to point
+              at on stage.
+            </p>
+            <ul class="session-log" id="round-log">
+              <li class="empty-state">Start a session to populate the log.</li>
+            </ul>
+          </section>
+        </aside>
+      </div>
+    </div>
+
+    <script>
+      const DIFFICULTY_NAMES = ['Easy', 'Medium', 'Hard']
+      const DIFFICULTY_CLASSES = ['easy', 'medium', 'hard']
+      const SESSION_LENGTH = 8
+      const STORAGE_KEY = 'adaptive-quiz-lab-best-streak'
+
+      const questionBank = {
+        easy: [
+          {
+            prompt: 'Which planet is known as the Red Planet?',
+            choices: ['Venus', 'Mars', 'Jupiter', 'Mercury'],
+            answerIndex: 1,
+            explanation:
+              'Mars is known as the Red Planet because of iron oxide on its surface.'
+          },
+          {
+            prompt: 'What is 7 + 6?',
+            choices: ['11', '12', '13', '14'],
+            answerIndex: 2,
+            explanation: '7 + 6 = 13.'
+          },
+          {
+            prompt: 'Which ocean is the largest?',
+            choices: ['Atlantic', 'Indian', 'Pacific', 'Arctic'],
+            answerIndex: 2,
+            explanation: 'The Pacific Ocean is the largest ocean on Earth.'
+          },
+          {
+            prompt:
+              'Which language runs in the browser alongside HTML and CSS?',
+            choices: ['Python', 'JavaScript', 'Go', 'Rust'],
+            answerIndex: 1,
+            explanation:
+              'JavaScript is the standard scripting language for browser interactivity.'
+          }
+        ],
+        medium: [
+          {
+            prompt: 'What is the capital of Australia?',
+            choices: ['Sydney', 'Melbourne', 'Canberra', 'Perth'],
+            answerIndex: 2,
+            explanation: 'Canberra is Australia’s capital city.'
+          },
+          {
+            prompt: 'Which HTTP status code means “Not Found”?',
+            choices: ['200', '302', '404', '500'],
+            answerIndex: 2,
+            explanation:
+              '404 is the standard code for a resource that could not be found.'
+          },
+          {
+            prompt: 'What is the square root of 144?',
+            choices: ['10', '11', '12', '14'],
+            answerIndex: 2,
+            explanation: '12 × 12 = 144.'
+          },
+          {
+            prompt: 'Who wrote “Pride and Prejudice”?',
+            choices: [
+              'Emily Brontë',
+              'Jane Austen',
+              'Mary Shelley',
+              'Virginia Woolf'
+            ],
+            answerIndex: 1,
+            explanation: 'Jane Austen wrote Pride and Prejudice.'
+          }
+        ],
+        hard: [
+          {
+            prompt: 'Which CSS property creates a new grid formatting context?',
+            choices: [
+              'position: relative',
+              'display: grid',
+              'overflow: hidden',
+              'z-index: 1'
+            ],
+            answerIndex: 1,
+            explanation:
+              'display: grid establishes a grid container and grid formatting context.'
+          },
+          {
+            prompt: 'What year did the first iPhone launch?',
+            choices: ['2005', '2006', '2007', '2008'],
+            answerIndex: 2,
+            explanation: 'The first iPhone launched in 2007.'
+          },
+          {
+            prompt: 'Which element has the chemical symbol Na?',
+            choices: ['Nitrogen', 'Nickel', 'Sodium', 'Neon'],
+            answerIndex: 2,
+            explanation: 'Na is the chemical symbol for sodium.'
+          },
+          {
+            prompt:
+              'In git, which command combines another branch into your current branch?',
+            choices: ['git switch', 'git merge', 'git stash', 'git init'],
+            answerIndex: 1,
+            explanation:
+              'git merge combines another branch into the current branch.'
+          }
+        ]
+      }
+
+      const model = tf.sequential()
+      model.add(
+        tf.layers.dense({ units: 16, activation: 'relu', inputShape: [3] })
+      )
+      model.add(tf.layers.dense({ units: 12, activation: 'relu' }))
+      model.add(tf.layers.dense({ units: 3, activation: 'softmax' }))
+      model.compile({
+        optimizer: tf.train.adam(0.03),
+        loss: 'categoricalCrossentropy',
+        metrics: ['accuracy']
+      })
+
+      const trainX = tf.tensor2d([
+        [1, 0.2, 0],
+        [1, 0.34, 0],
+        [1, 0.62, 0],
+        [0, 0.28, 0],
+        [0, 0.8, 0],
+        [1, 0.22, 1],
+        [1, 0.45, 1],
+        [1, 0.7, 1],
+        [0, 0.26, 1],
+        [0, 0.58, 1],
+        [0, 0.88, 1],
+        [1, 0.24, 2],
+        [1, 0.52, 2],
+        [1, 0.78, 2],
+        [0, 0.3, 2],
+        [0, 0.62, 2],
+        [0, 0.9, 2],
+        [1, 0.15, 0],
+        [0, 0.95, 0],
+        [1, 0.18, 1],
+        [0, 0.41, 2]
+      ])
+
+      const trainY = tf.tensor2d([
+        [0, 1, 0],
+        [0, 1, 0],
+        [1, 0, 0],
+        [1, 0, 0],
+        [1, 0, 0],
+        [0, 0, 1],
+        [0, 1, 0],
+        [0, 1, 0],
+        [1, 0, 0],
+        [1, 0, 0],
+        [1, 0, 0],
+        [0, 0, 1],
+        [0, 0, 1],
+        [0, 1, 0],
+        [0, 1, 0],
+        [0, 1, 0],
+        [1, 0, 0],
+        [0, 1, 0],
+        [1, 0, 0],
+        [0, 0, 1],
+        [0, 1, 0]
+      ])
+
+      let modelTrained = false
+      let started = false
+      let currentDifficulty = 0
+      let currentQuestion = null
+      let currentQuestionLevel = 'easy'
+      let startTime = 0
+      let round = 0
+      let correctCount = 0
+      let streak = 0
+      let bestStreak = Number(localStorage.getItem(STORAGE_KEY) || 0)
+      let highestDifficultyReached = 0
+      let responseTimes = []
+      let roundLog = []
+      let askedIds = new Set()
+      let waitingForNext = false
+
+      const elements = {
+        statusDot: document.getElementById('status-dot'),
+        modelStatus: document.getElementById('model-status'),
+        difficultyStat: document.getElementById('difficulty-stat'),
+        predictionStat: document.getElementById('prediction-stat'),
+        accuracyStat: document.getElementById('accuracy-stat'),
+        streakStat: document.getElementById('streak-stat'),
+        difficultyPill: document.getElementById('difficulty-pill'),
+        roundChip: document.getElementById('round-chip'),
+        question: document.getElementById('question'),
+        questionSupport: document.getElementById('question-support'),
+        answerGrid: document.getElementById('answer-grid'),
+        feedback: document.getElementById('feedback'),
+        startBtn: document.getElementById('start-btn'),
+        nextBtn: document.getElementById('next-btn'),
+        resetBtn: document.getElementById('reset-btn'),
+        signalText: document.getElementById('signal-text'),
+        decisionText: document.getElementById('decision-text'),
+        responseText: document.getElementById('response-text'),
+        roundLog: document.getElementById('round-log'),
+        probEasy: document.getElementById('prob-easy'),
+        probMedium: document.getElementById('prob-medium'),
+        probHard: document.getElementById('prob-hard'),
+        probEasyLabel: document.getElementById('prob-easy-label'),
+        probMediumLabel: document.getElementById('prob-medium-label'),
+        probHardLabel: document.getElementById('prob-hard-label'),
+        summaryCard: document.getElementById('summary-card'),
+        summaryText: document.getElementById('summary-text'),
+        summaryAccuracy: document.getElementById('summary-accuracy'),
+        summaryTime: document.getElementById('summary-time'),
+        summaryLevel: document.getElementById('summary-level')
+      }
+
+      function setModelReady(accuracyMetric) {
+        modelTrained = true
+        elements.statusDot.classList.add('ready')
+        elements.modelStatus.textContent = accuracyMetric
+          ? `TensorFlow.js ready · ${(accuracyMetric * 100).toFixed(
+              0
+            )}% train acc`
+          : 'TensorFlow.js ready'
+        elements.startBtn.disabled = false
+      }
+
+      async function trainModel() {
+        const history = await model.fit(trainX, trainY, {
+          epochs: 160,
+          shuffle: true,
+          verbose: 0,
+          batchSize: 8
+        })
+
+        const accHistory = history.history.acc || history.history.accuracy || []
+        const finalAcc = accHistory.length
+          ? accHistory[accHistory.length - 1]
+          : null
+        setModelReady(finalAcc)
+      }
+
+      function normalizedResponseTime(seconds) {
+        return Math.min(seconds / 10, 1)
+      }
+
+      function difficultyName(index) {
+        return DIFFICULTY_NAMES[index]
+      }
+
+      function difficultyClass(index) {
+        return DIFFICULTY_CLASSES[index]
+      }
+
+      function setDifficultyDisplay(index) {
+        elements.difficultyStat.textContent = difficultyName(index)
+        elements.difficultyPill.textContent = difficultyName(index)
+        elements.difficultyPill.className = `pill ${difficultyClass(index)}`
+      }
+
+      function resetProbabilityBars() {
+        ;[
+          [elements.probEasy, elements.probEasyLabel],
+          [elements.probMedium, elements.probMediumLabel],
+          [elements.probHard, elements.probHardLabel]
+        ].forEach(([bar, label]) => {
+          bar.style.width = '0%'
+          label.textContent = '0%'
+        })
+      }
+
+      function renderProbabilities(probabilities) {
+        const percent = probabilities.map(v => Math.round(v * 100))
+        elements.probEasy.style.width = `${percent[0]}%`
+        elements.probMedium.style.width = `${percent[1]}%`
+        elements.probHard.style.width = `${percent[2]}%`
+        elements.probEasyLabel.textContent = `${percent[0]}%`
+        elements.probMediumLabel.textContent = `${percent[1]}%`
+        elements.probHardLabel.textContent = `${percent[2]}%`
+      }
+
+      function getPool(level) {
+        return questionBank[level].map((q, i) => ({
+          ...q,
+          id: `${level}-${i}`
+        }))
+      }
+
+      function chooseQuestion(level) {
+        let pool = getPool(level).filter(q => !askedIds.has(q.id))
+        if (pool.length === 0) {
+          askedIds = new Set([...askedIds].filter(id => !id.startsWith(level)))
+          pool = getPool(level)
+        }
+        const next = pool[Math.floor(Math.random() * pool.length)]
+        askedIds.add(next.id)
+        return next
+      }
+
+      function renderQuestion(questionObj) {
+        elements.answerGrid.innerHTML = ''
+        questionObj.choices.forEach((choice, index) => {
+          const button = document.createElement('button')
+          button.className = 'answer-btn'
+          button.textContent = choice
+          button.type = 'button'
+          button.addEventListener('click', () => handleAnswer(index, button))
+          elements.answerGrid.appendChild(button)
+        })
+      }
+
+      function beginRound() {
+        if (round >= SESSION_LENGTH) {
+          showSessionSummary()
+          return
+        }
+
+        waitingForNext = false
+        elements.nextBtn.hidden = true
+        setDifficultyDisplay(currentDifficulty)
+        elements.roundChip.textContent = `Round ${
+          round + 1
+        } of ${SESSION_LENGTH}`
+        currentQuestionLevel = difficultyClass(currentDifficulty)
+        currentQuestion = chooseQuestion(currentQuestionLevel)
+        elements.question.textContent = currentQuestion.prompt
+        elements.questionSupport.textContent =
+          'Answer the question, then look to the right to see how the model interpreted the round.'
+        renderQuestion(currentQuestion)
+        startTime = performance.now()
+      }
+
+      function describeDecision(
+        previousDifficulty,
+        nextDifficulty,
+        correct,
+        responseTime
+      ) {
+        const direction =
+          nextDifficulty > previousDifficulty
+            ? 'nudged upward'
+            : nextDifficulty < previousDifficulty
+            ? 'eased downward'
+            : 'stayed steady'
+
+        const pace =
+          responseTime < 3.5 ? 'fast' : responseTime < 6 ? 'steady' : 'slow'
+        return `${
+          correct ? 'Correct' : 'Incorrect'
+        } + ${pace} response ${direction}.`
+      }
+
+      function updateModelDecision(correct, responseTime) {
+        const previousDifficulty = currentDifficulty
+        const normalizedTime = normalizedResponseTime(responseTime)
+
+        const result = tf.tidy(() => {
+          const input = tf.tensor2d([
+            [correct ? 1 : 0, normalizedTime, currentDifficulty]
+          ])
+          const prediction = model.predict(input)
+          const probabilities = Array.from(prediction.dataSync())
+          const nextDifficulty = prediction.argMax(-1).dataSync()[0]
+          return { probabilities, nextDifficulty }
+        })
+
+        currentDifficulty = result.nextDifficulty
+        highestDifficultyReached = Math.max(
+          highestDifficultyReached,
+          currentDifficulty
+        )
+        renderProbabilities(result.probabilities)
+        elements.predictionStat.textContent = difficultyName(
+          result.nextDifficulty
+        )
+        elements.decisionText.textContent = `${difficultyName(
+          result.nextDifficulty
+        )} is the top class. ${describeDecision(
+          previousDifficulty,
+          result.nextDifficulty,
+          correct,
+          responseTime
+        )}`
+        elements.responseText.textContent = `The next round will load at ${difficultyName(
+          result.nextDifficulty
+        )} difficulty.`
+
+        return result
+      }
+
+      function disableAnswerButtons() {
+        elements.answerGrid.querySelectorAll('button').forEach(button => {
+          button.disabled = true
+        })
+      }
+
+      function updateStats() {
+        const accuracy =
+          round === 0 ? 0 : Math.round((correctCount / round) * 100)
+        elements.accuracyStat.textContent = `${accuracy}%`
+        elements.streakStat.textContent = String(bestStreak)
+      }
+
+      function addRoundLog(entry) {
+        roundLog.unshift(entry)
+        roundLog = roundLog.slice(0, 6)
+        elements.roundLog.innerHTML = ''
+        roundLog.forEach(item => {
+          const li = document.createElement('li')
+          li.innerHTML = `<strong>Round ${item.round}</strong><br>${item.label}`
+          elements.roundLog.appendChild(li)
+        })
+      }
+
+      function showFeedback(correct, choiceText, responseTime, explanation) {
+        elements.feedback.className = `feedback ${
+          correct ? 'success' : 'error'
+        }`
+        elements.feedback.innerHTML = correct
+          ? `<strong>Nice.</strong>You answered <em>${choiceText}</em> in ${responseTime.toFixed(
+              1
+            )}s. ${explanation}`
+          : `<strong>Not quite.</strong>You answered <em>${choiceText}</em> in ${responseTime.toFixed(
+              1
+            )}s. ${explanation}`
+      }
+
+      function handleAnswer(selectedIndex, clickedButton) {
+        if (!started || waitingForNext) return
+        waitingForNext = true
+        disableAnswerButtons()
+
+        const correct = selectedIndex === currentQuestion.answerIndex
+        const responseTime = (performance.now() - startTime) / 1000
+        const choiceText = currentQuestion.choices[selectedIndex]
+        const correctText = currentQuestion.choices[currentQuestion.answerIndex]
+
+        elements.answerGrid
+          .querySelectorAll('button')
+          .forEach((button, index) => {
+            if (index === currentQuestion.answerIndex)
+              button.classList.add('correct')
+            if (index === selectedIndex && !correct)
+              button.classList.add('wrong')
+          })
+
+        if (correct) {
+          correctCount += 1
+          streak += 1
+        } else {
+          streak = 0
+        }
+
+        bestStreak = Math.max(bestStreak, streak, bestStreak)
+        localStorage.setItem(STORAGE_KEY, String(bestStreak))
+        responseTimes.push(responseTime)
+        round += 1
+        updateStats()
+
+        elements.signalText.textContent = `${
+          correct ? 'Correct' : 'Incorrect'
+        } answer · ${responseTime.toFixed(
+          1
+        )}s response time · started from ${difficultyName(currentDifficulty)}.`
+        const result = updateModelDecision(correct, responseTime)
+
+        showFeedback(
+          correct,
+          choiceText,
+          responseTime,
+          correct
+            ? currentQuestion.explanation
+            : `${currentQuestion.explanation} The correct answer was ${correctText}.`
+        )
+
+        addRoundLog({
+          round,
+          label: `${difficultyName(result.nextDifficulty)} next · ${
+            correct ? 'correct' : 'incorrect'
+          } · ${responseTime.toFixed(1)}s`
+        })
+
+        elements.nextBtn.hidden = false
+        elements.nextBtn.textContent =
+          round >= SESSION_LENGTH ? 'View session recap' : 'Next question'
+      }
+
+      function startSession() {
+        if (!modelTrained) return
+        started = true
+        currentDifficulty = 0
+        round = 0
+        correctCount = 0
+        streak = 0
+        highestDifficultyReached = 0
+        responseTimes = []
+        roundLog = []
+        askedIds = new Set()
+        waitingForNext = false
+        elements.startBtn.hidden = true
+        elements.summaryCard.classList.remove('show')
+        elements.predictionStat.textContent = 'Waiting…'
+        elements.feedback.className = 'feedback'
+        elements.feedback.innerHTML =
+          '<strong>Session started.</strong> Use the next few rounds to show how the model responds to different player behavior.'
+        elements.signalText.textContent = 'Waiting for the first answer.'
+        elements.decisionText.textContent = 'No prediction yet.'
+        elements.responseText.textContent =
+          'The next round will update after each answer.'
+        elements.roundLog.innerHTML =
+          '<li class="empty-state">The session log will update after the first answer.</li>'
+        resetProbabilityBars()
+        updateStats()
+        beginRound()
+      }
+
+      function showSessionSummary() {
+        started = false
+        elements.answerGrid.innerHTML = ''
+        elements.question.textContent = 'Session complete'
+        elements.questionSupport.textContent =
+          'You now have a clean recap you can point to before moving back to slides.'
+        const avg = responseTimes.length
+          ? responseTimes.reduce((sum, value) => sum + value, 0) /
+            responseTimes.length
+          : 0
+        const accuracy =
+          round === 0 ? 0 : Math.round((correctCount / round) * 100)
+
+        elements.summaryText.textContent = `The model watched ${round} rounds, ended with ${accuracy}% accuracy, and reached ${difficultyName(
+          highestDifficultyReached
+        )} as the highest visible difficulty.`
+        elements.summaryAccuracy.textContent = `${accuracy}%`
+        elements.summaryTime.textContent = `${avg.toFixed(1)}s`
+        elements.summaryLevel.textContent = difficultyName(
+          highestDifficultyReached
+        )
+        elements.summaryCard.classList.add('show')
+        elements.nextBtn.hidden = true
+        elements.startBtn.hidden = false
+        elements.startBtn.disabled = !modelTrained
+        elements.startBtn.textContent = 'Run another session'
+      }
+
+      function resetSession() {
+        started = false
+        currentDifficulty = 0
+        round = 0
+        correctCount = 0
+        streak = 0
+        highestDifficultyReached = 0
+        responseTimes = []
+        roundLog = []
+        waitingForNext = false
+        askedIds = new Set()
+        setDifficultyDisplay(0)
+        elements.predictionStat.textContent = 'Waiting…'
+        elements.accuracyStat.textContent = '0%'
+        elements.streakStat.textContent = String(bestStreak)
+        elements.roundChip.textContent = 'Round 0 of 8'
+        elements.question.textContent =
+          'Start a session to see the challenge adapt in real time.'
+        elements.questionSupport.textContent =
+          'Answer quickly or slowly, answer correctly or incorrectly, and watch how the next round shifts.'
+        elements.answerGrid.innerHTML = ''
+        elements.feedback.className = 'feedback'
+        elements.feedback.innerHTML =
+          '<strong>How this demo works</strong>A small TensorFlow.js model uses correctness, response time, and current difficulty to choose what should happen next.'
+        elements.signalText.textContent = 'Waiting for the first answer.'
+        elements.decisionText.textContent = 'No prediction yet.'
+        elements.responseText.textContent =
+          'The next round will update after each answer.'
+        elements.roundLog.innerHTML =
+          '<li class="empty-state">Start a session to populate the log.</li>'
+        elements.summaryCard.classList.remove('show')
+        elements.startBtn.hidden = false
+        elements.startBtn.textContent = 'Start session'
+        elements.nextBtn.hidden = true
+        resetProbabilityBars()
+      }
+
+      elements.startBtn.addEventListener('click', () => {
+        if (!modelTrained) return
+        startSession()
+      })
+
+      elements.nextBtn.addEventListener('click', () => {
+        if (!started) {
+          showSessionSummary()
+          return
+        }
+        beginRound()
+      })
+
+      elements.resetBtn.addEventListener('click', resetSession)
+
+      trainModel().then(() => {
+        bestStreak = Math.max(
+          bestStreak,
+          Number(localStorage.getItem(STORAGE_KEY) || 0)
+        )
+        resetSession()
+      })
+
+      window.addEventListener('beforeunload', () => {
+        trainX.dispose()
+        trainY.dispose()
+      })
+    </script>
+  </body>
+</html>

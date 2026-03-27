@@ -1,0 +1,3188 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GeoExplorer</title>
+    <script>
+      window.esriConfig = {
+        apiKey:
+          'yourkey'
+      }
+    </script>
+    <script type="module" src="https://js.arcgis.com/5.0/"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #eef2ff;
+        --panel: rgba(255, 255, 255, 0.96);
+        --panel-border: rgba(148, 163, 184, 0.35);
+        --text: #0f172a;
+        --muted: #64748b;
+        --brand: #4f46e5;
+        --brand-soft: rgba(79, 70, 229, 0.12);
+        --good: #15803d;
+        --good-soft: rgba(22, 163, 74, 0.12);
+        --warn: #b45309;
+        --warn-soft: rgba(245, 158, 11, 0.14);
+        --bad: #b91c1c;
+        --bad-soft: rgba(220, 38, 38, 0.12);
+        --card: #ffffff;
+        --shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+        --radius: 18px;
+        --line: rgba(148, 163, 184, 0.24);
+        --ink-soft: #64748b;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system,
+          BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        color: var(--text);
+        background: linear-gradient(180deg, #f8fbff 0%, #eef2ff 100%);
+      }
+
+      body {
+        overflow: hidden;
+      }
+
+      .app-shell {
+        display: grid;
+        grid-template-columns: 360px 1fr;
+        height: 100%;
+      }
+
+      .sidebar {
+        position: relative;
+        z-index: 2;
+        background: var(--panel);
+        border-right: 1px solid var(--panel-border);
+        backdrop-filter: blur(12px);
+        box-shadow: var(--shadow);
+        overflow: auto;
+        padding: 14px;
+      }
+
+      .sidebar.collapsed {
+        width: 0;
+        padding: 0;
+        overflow: hidden;
+        border-right: 0;
+      }
+
+      .map-wrap {
+        position: relative;
+        min-width: 0;
+      }
+
+      arcgis-map {
+        display: block;
+        height: 100%;
+        width: 100%;
+      }
+
+      .floating-toggle {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        z-index: 5;
+        border: 0;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: var(--shadow);
+        padding: 10px 14px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .section {
+        background: var(--card);
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        border-radius: var(--radius);
+        padding: 12px;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+      }
+
+      .stack {
+        display: grid;
+        gap: 12px;
+      }
+
+      .hero {
+        display: grid;
+        gap: 10px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        color: var(--brand);
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      .hero h1 {
+        font-size: 1.4rem;
+        line-height: 1.1;
+      }
+
+      .hero p {
+        color: var(--muted);
+        font-size: 0.92rem;
+        line-height: 1.4;
+      }
+
+      .chip-row,
+      .badge-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .chip,
+      .badge-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-size: 12px;
+        font-weight: 700;
+        border: 1px solid rgba(79, 70, 229, 0.16);
+        background: rgba(79, 70, 229, 0.08);
+        color: #3730a3;
+      }
+
+      .badge-chip.locked {
+        opacity: 0.5;
+        background: rgba(148, 163, 184, 0.08);
+        color: #475569;
+        border-color: rgba(148, 163, 184, 0.18);
+      }
+
+      .mode-switch {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+
+      .mode-switch button {
+        border: 0;
+        cursor: pointer;
+        font: inherit;
+        padding: 10px 8px;
+        border-radius: 12px;
+        background: #eef2ff;
+        color: #4338ca;
+        font-size: 0.84rem;
+        font-weight: 800;
+        transition: transform 120ms ease, background 120ms ease,
+          color 120ms ease;
+      }
+
+      .mode-switch button:hover {
+        transform: translateY(-1px);
+      }
+
+      .mode-switch button.active {
+        background: var(--brand);
+        color: #ffffff;
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .stat-card {
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 14px;
+        padding: 10px;
+        background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
+      }
+
+      .stat-card .label {
+        color: var(--muted);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        font-weight: 800;
+      }
+
+      .stat-card .value {
+        margin-top: 4px;
+        font-size: 1.12rem;
+        font-weight: 900;
+      }
+
+      .mini-note {
+        color: var(--muted);
+        font-size: 0.8rem;
+        line-height: 1.35;
+      }
+
+      .meter-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .meter-row {
+        display: grid;
+        grid-template-columns: 56px 1fr 42px;
+        gap: 8px;
+        align-items: center;
+        font-size: 0.82rem;
+      }
+
+      .meter-track {
+        position: relative;
+        height: 10px;
+        border-radius: 999px;
+        background: #e2e8f0;
+        overflow: hidden;
+      }
+
+      .meter-fill {
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 0%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #818cf8 0%, #4f46e5 100%);
+      }
+
+      .unlock-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .unlock-card {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 10px;
+        align-items: start;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        background: #fff;
+        border-radius: 14px;
+        padding: 10px;
+      }
+
+      .unlock-card.locked {
+        opacity: 0.6;
+      }
+
+      .unlock-card input {
+        margin-top: 4px;
+      }
+
+      .unlock-card .name {
+        font-weight: 900;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.92rem;
+      }
+
+      .unlock-card .why,
+      .unlock-card .req {
+        color: var(--muted);
+        font-size: 0.8rem;
+        margin-top: 3px;
+        line-height: 1.35;
+      }
+
+      .action-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .action-btn,
+      .tiny-btn {
+        padding: 10px 12px;
+        border-radius: 12px;
+        font-size: 0.84rem;
+        font-weight: 800;
+      }
+
+      .action-btn.primary.primary {
+        background: var(--brand);
+        color: #fff;
+      }
+
+      .action-btn.secondary,
+      .tiny-btn.secondary.secondary {
+        background: #eef2ff;
+        color: #3730a3;
+      }
+
+      .action-btn.ghost,
+      .tiny-btn.ghost {
+        background: #f1f5f9;
+        color: #334155;
+      }
+
+      .recap-card {
+        display: grid;
+        gap: 8px;
+        min-height: 88px;
+      }
+
+      .recap-title {
+        font-weight: 900;
+        font-size: 0.98rem;
+      }
+
+      .recap-body {
+        color: var(--muted);
+        line-height: 1.45;
+        font-size: 0.86rem;
+      }
+
+      .toast-wrap {
+        position: fixed;
+        right: 16px;
+        bottom: 16px;
+        z-index: 40;
+        display: grid;
+        gap: 8px;
+        max-width: min(360px, calc(100vw - 24px));
+      }
+
+      .toast {
+        border-radius: 16px;
+        padding: 12px 14px;
+        background: rgba(15, 23, 42, 0.92);
+        color: #fff;
+        box-shadow: var(--shadow);
+      }
+
+      .toast .title {
+        font-weight: 900;
+        margin-bottom: 4px;
+      }
+
+      .loader {
+        position: absolute;
+        inset: 0;
+        display: none;
+        place-items: center;
+        z-index: 30;
+        background: rgba(248, 250, 252, 0.56);
+        backdrop-filter: blur(4px);
+      }
+
+      .loader.active {
+        display: grid;
+      }
+
+      .loader-card {
+        background: rgba(255, 255, 255, 0.96);
+        padding: 18px 20px;
+        border-radius: 18px;
+        box-shadow: var(--shadow);
+        text-align: center;
+      }
+
+      .spinner {
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        border: 3px solid rgba(79, 70, 229, 0.2);
+        border-top-color: #4f46e5;
+        margin: 0 auto 10px;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .esri-popup__main-container {
+        width: min(450px, calc(100vw - 24px));
+        border-radius: 24px;
+        overflow: hidden;
+        box-shadow: 0 28px 64px rgba(15, 23, 42, 0.18);
+      }
+
+      .esri-popup__header-container {
+        padding: 12px 16px 8px;
+        background: linear-gradient(
+          180deg,
+          rgba(248, 250, 255, 0.98) 0%,
+          rgba(241, 245, 255, 0.98) 100%
+        );
+        border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+      }
+
+      .esri-popup__header-title {
+        font-weight: 900;
+        letter-spacing: 0.01em;
+        color: #0f172a;
+      }
+
+      .esri-popup__content {
+        margin: 0;
+        padding: 0 16px 16px;
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.98) 0%,
+          rgba(248, 251, 255, 0.98) 100%
+        );
+      }
+
+      .esri-popup__footer,
+      .esri-popup__button--dock {
+        display: none;
+      }
+
+      .popup-card {
+        display: grid;
+        gap: 14px;
+        min-width: 320px;
+        max-width: 410px;
+        padding-top: 6px;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system,
+          BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+
+      .popup-hero {
+        display: grid;
+        gap: 10px;
+        padding: 16px;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 22px;
+        background: radial-gradient(
+            circle at top right,
+            rgba(129, 140, 248, 0.16),
+            transparent 38%
+          ),
+          linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+      }
+
+      .popup-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .popup-headline {
+        min-width: 0;
+        display: grid;
+        gap: 6px;
+      }
+
+      .popup-kicker {
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--brand);
+      }
+
+      .popup-top .title {
+        font-weight: 900;
+        font-size: 1.12rem;
+        line-height: 1.2;
+        color: var(--text);
+      }
+
+      .difficulty-pill.easy {
+        background: rgba(79, 70, 229, 0.1);
+        color: #3730a3;
+      }
+
+      .difficulty-pill.medium {
+        background: rgba(245, 158, 11, 0.14);
+        color: #92400e;
+      }
+
+      .difficulty-pill.hard {
+        background: rgba(220, 38, 38, 0.12);
+        color: #991b1b;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        font-weight: 800;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #eef2ff;
+        color: #3730a3;
+        white-space: nowrap;
+      }
+
+      .pill.soft {
+        background: rgba(148, 163, 184, 0.12);
+        color: #475569;
+      }
+
+      .pill.good {
+        background: var(--good-soft);
+        color: #166534;
+      }
+
+      .pill.warn {
+        background: var(--warn-soft);
+        color: #92400e;
+      }
+
+      .pill.bad {
+        background: var(--bad-soft);
+        color: #991b1b;
+      }
+
+      .popup-subtitle {
+        color: var(--muted);
+        font-size: 0.84rem;
+        line-height: 1.45;
+      }
+
+      .popup-helper-card {
+        border: 1px solid rgba(79, 70, 229, 0.14);
+        border-radius: 16px;
+        background: rgba(79, 70, 229, 0.06);
+        padding: 10px 12px;
+        color: #4338ca;
+        font-size: 0.83rem;
+        line-height: 1.45;
+        font-weight: 600;
+      }
+
+      .popup-question-card,
+      .popup-secondary-card {
+        display: grid;
+        gap: 12px;
+        padding: 16px;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 20px;
+        background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+        box-shadow: 0 10px 26px rgba(15, 23, 42, 0.05);
+      }
+
+      .popup-question-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .popup-question {
+        font-size: 1.08rem;
+        font-weight: 900;
+        line-height: 1.35;
+        color: #0f172a;
+      }
+
+      .popup-meta,
+      .popup-helper,
+      .popup-status,
+      .popup-explainer {
+        color: var(--muted);
+        font-size: 0.83rem;
+        line-height: 1.45;
+      }
+
+      .option-list.option-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .option-btn {
+        width: 100%;
+        min-height: 78px;
+        text-align: left;
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 12px;
+        align-items: start;
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        border-radius: 18px;
+        padding: 14px 14px 13px;
+        background: #fff;
+        font: inherit;
+        color: var(--text);
+        cursor: pointer;
+        transition: transform 120ms ease, border-color 120ms ease,
+          background 120ms ease, box-shadow 120ms ease;
+      }
+
+      .option-btn:hover:not(:disabled) {
+        transform: translateY(-1px);
+        border-color: rgba(79, 70, 229, 0.42);
+        background: #fafaff;
+        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+      }
+
+      .option-btn:disabled {
+        cursor: default;
+        opacity: 0.96;
+      }
+
+      .option-key {
+        width: 28px;
+        height: 28px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        background: rgba(79, 70, 229, 0.1);
+        color: #3730a3;
+        font-size: 0.82rem;
+        font-weight: 900;
+        flex: 0 0 auto;
+      }
+
+      .option-copy {
+        display: block;
+        font-size: 0.93rem;
+        line-height: 1.4;
+        font-weight: 700;
+      }
+
+      .option-btn.correct {
+        border-color: rgba(22, 163, 74, 0.32);
+        background: #f0fdf4;
+      }
+
+      .option-btn.correct .option-key {
+        background: rgba(22, 163, 74, 0.14);
+        color: #166534;
+      }
+
+      .option-btn.wrong {
+        border-color: rgba(220, 38, 38, 0.3);
+        background: #fef2f2;
+      }
+
+      .option-btn.wrong .option-key {
+        background: rgba(220, 38, 38, 0.12);
+        color: #991b1b;
+      }
+
+      .feedback-card {
+        display: grid;
+        gap: 6px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        background: #f8fafc;
+      }
+
+      .feedback-card.is-hidden {
+        display: none;
+      }
+
+      .feedback-card.success {
+        background: var(--good-soft);
+        border-color: rgba(22, 163, 74, 0.22);
+      }
+
+      .feedback-card.error {
+        background: var(--bad-soft);
+        border-color: rgba(220, 38, 38, 0.2);
+      }
+
+      .feedback-title {
+        font-size: 0.95rem;
+        font-weight: 900;
+        color: #0f172a;
+      }
+
+      .feedback-copy {
+        font-size: 0.84rem;
+        line-height: 1.45;
+        color: #334155;
+      }
+
+      .popup-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .tiny-btn {
+        padding: 10px 12px;
+        border-radius: 14px;
+        font-size: 0.84rem;
+        font-weight: 800;
+        border: 0;
+        cursor: pointer;
+      }
+
+      .tiny-btn.secondary {
+        background: var(--brand);
+        color: #fff;
+        box-shadow: 0 10px 24px rgba(79, 70, 229, 0.22);
+      }
+
+      .tiny-btn.ghost {
+        background: #e2e8f0;
+        color: #0f172a;
+      }
+
+      .popup-textarea {
+        width: 100%;
+        min-height: 92px;
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        border-radius: 16px;
+        padding: 12px 13px;
+        resize: vertical;
+        font: inherit;
+        color: var(--text);
+        background: #fff;
+      }
+
+      .popup-textarea:focus,
+      .option-btn:focus-visible,
+      .tiny-btn:focus-visible {
+        outline: 2px solid rgba(79, 70, 229, 0.28);
+        outline-offset: 2px;
+      }
+
+      .hint-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .divider {
+        height: 1px;
+        background: rgba(148, 163, 184, 0.16);
+        margin: 2px 0;
+      }
+
+      .sentiment-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .sentiment-chip.positive {
+        background: var(--good-soft);
+        color: #166534;
+      }
+
+      .sentiment-chip.neutral,
+      .sentiment-chip.mixed {
+        background: rgba(100, 116, 139, 0.12);
+        color: #475569;
+      }
+
+      .sentiment-chip.negative {
+        background: var(--bad-soft);
+        color: #991b1b;
+      }
+
+      .analysis-card.compact {
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 14px;
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.96),
+          rgba(247, 250, 255, 0.92)
+        );
+      }
+
+      .route-box {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 12px 14px;
+        background: rgba(241, 245, 249, 0.7);
+      }
+
+      .route-box.positive {
+        background: rgba(22, 163, 74, 0.08);
+        border-color: rgba(22, 163, 74, 0.18);
+      }
+
+      .route-box.mixed {
+        background: rgba(180, 83, 9, 0.09);
+        border-color: rgba(180, 83, 9, 0.18);
+      }
+
+      .route-box.negative {
+        background: rgba(220, 38, 38, 0.08);
+        border-color: rgba(220, 38, 38, 0.18);
+      }
+
+      .route-box.neutral {
+        background: rgba(100, 116, 139, 0.08);
+        border-color: rgba(100, 116, 139, 0.18);
+      }
+
+      .route-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 7px 11px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 900;
+        margin-bottom: 10px;
+      }
+
+      .route-chip.positive {
+        color: #166534;
+        background: rgba(22, 163, 74, 0.12);
+      }
+      .route-chip.mixed {
+        color: #92400e;
+        background: rgba(180, 83, 9, 0.12);
+      }
+      .route-chip.negative {
+        color: #991b1b;
+        background: rgba(220, 38, 38, 0.12);
+      }
+      .route-chip.neutral {
+        color: #475569;
+        background: rgba(100, 116, 139, 0.12);
+      }
+
+      .mini-flow {
+        display: grid;
+        gap: 8px;
+        font-size: 13px;
+        line-height: 1.45;
+        color: var(--ink-soft);
+      }
+
+      .log-list,
+      .sentence-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .log-item,
+      .sentence-item {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 12px 13px;
+        background: rgba(248, 250, 252, 0.88);
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      .log-item strong,
+      .sentence-item strong {
+        display: inline-block;
+        margin-bottom: 4px;
+      }
+
+      .log-item.empty,
+      .sentence-item.empty {
+        color: var(--ink-soft);
+      }
+
+      .sentence-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 6px;
+        font-weight: 900;
+        font-size: 12px;
+      }
+
+      .meter-fill.positive {
+        background: linear-gradient(90deg, #16a34a, #4ade80);
+      }
+      .meter-fill.neutral {
+        background: linear-gradient(90deg, #64748b, #94a3b8);
+      }
+      .meter-fill.negative {
+        background: linear-gradient(90deg, #dc2626, #f87171);
+      }
+
+      @media (max-width: 560px) {
+        .popup-card {
+          min-width: 0;
+          max-width: 100%;
+        }
+
+        .option-list.option-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .esri-popup__content {
+          padding: 0 12px 12px;
+        }
+      }
+
+      @media (max-width: 920px) {
+        .app-shell {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          position: absolute;
+          inset: 0 auto 0 0;
+          width: min(90vw, 360px);
+          max-width: 100%;
+          z-index: 10;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside id="sidebar" class="sidebar">
+        <div class="stack">
+          <section class="section hero">
+            <div class="eyebrow">🌍 Explore more</div>
+            <h1>GeoExplorer</h1>
+            <p>
+              Tap around the map to uncover place-based challenges, save quick
+              reactions, unlock new map styles, and build a living recap of your
+              session.
+            </p>
+            <div class="chip-row">
+              <span class="chip">Location challenges</span>
+              <span class="chip">Quick reactions</span>
+              <span class="chip">New map styles</span>
+            </div>
+          </section>
+
+          <section class="section stack">
+            <div>
+              <h2 style="font-size: 1rem">Experience mode</h2>
+              <p class="mini-note" style="margin-top: 4px">
+                Choose the full experience or focus on just one part of it.
+              </p>
+            </div>
+            <div id="modeSwitch" class="mode-switch">
+              <button data-mode="combined" class="active">
+                Full experience
+              </button>
+              <button data-mode="quiz">Challenges</button>
+              <button data-mode="mood">Mood check-ins</button>
+            </div>
+          </section>
+
+          <section class="section stack">
+            <div>
+              <h2 style="font-size: 1rem">Your progress</h2>
+              <p class="mini-note" style="margin-top: 4px">
+                A simple view of how your session is going.
+              </p>
+            </div>
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="label">Current pace</div>
+                <div class="value" id="statDifficulty">Easy</div>
+              </div>
+              <div class="stat-card">
+                <div class="label">Attempts</div>
+                <div class="value" id="statAttempts">0</div>
+              </div>
+              <div class="stat-card">
+                <div class="label">Accuracy</div>
+                <div class="value" id="statAccuracy">0%</div>
+              </div>
+              <div class="stat-card">
+                <div class="label">Avg time</div>
+                <div class="value" id="statAvgTime">0.0s</div>
+              </div>
+              <div class="stat-card">
+                <div class="label">Current streak</div>
+                <div class="value" id="statStreak">0</div>
+              </div>
+              <div class="stat-card">
+                <div class="label">Mood tags</div>
+                <div class="value" id="statReflections">0</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="section stack">
+            <div>
+              <h2 style="font-size: 1rem">Challenge pace</h2>
+              <p class="mini-note" style="margin-top: 4px">
+                The experience quietly adjusts how challenging each place
+                question feels based on your pace and accuracy.
+              </p>
+            </div>
+            <div class="meter-list">
+              <div class="meter-row">
+                <strong>Easy</strong>
+                <div class="meter-track">
+                  <div id="barEasy" class="meter-fill"></div>
+                </div>
+                <span id="pctEasy">0%</span>
+              </div>
+              <div class="meter-row">
+                <strong>Medium</strong>
+                <div class="meter-track">
+                  <div id="barMedium" class="meter-fill"></div>
+                </div>
+                <span id="pctMedium">0%</span>
+              </div>
+              <div class="meter-row">
+                <strong>Hard</strong>
+                <div class="meter-track">
+                  <div id="barHard" class="meter-fill"></div>
+                </div>
+                <span id="pctHard">0%</span>
+              </div>
+              <div class="mini-note" id="modelNote">
+                Getting your challenge profile ready.
+              </div>
+            </div>
+          </section>
+
+          <section class="section stack">
+            <div>
+              <h2 style="font-size: 1rem">Recent challenge activity</h2>
+              <p class="mini-note" style="margin-top: 4px">
+                A quick look at the latest place challenges you completed.
+              </p>
+            </div>
+            <div class="log-list" id="roundLogList">
+              <div class="log-item empty">
+                Complete a place challenge to build your recent activity.
+              </div>
+            </div>
+          </section>
+
+          <section class="section stack">
+            <div>
+              <h2 style="font-size: 1rem">Recent mood</h2>
+              <p class="mini-note" style="margin-top: 4px">
+                Your reactions shape the tone of the experience as you explore.
+              </p>
+            </div>
+            <div class="analysis-card compact">
+              <div class="route-box neutral" id="sentimentRouteBox">
+                <div class="route-chip neutral" id="sentimentRouteChip">
+                  No mood yet
+                </div>
+                <div class="mini-flow">
+                  <div>
+                    <strong>Recent reaction:</strong>
+                    <span id="sentimentSignalText">No reaction saved yet.</span>
+                  </div>
+                  <div>
+                    <strong>Mood read:</strong>
+                    <span id="sentimentDecisionText"
+                      >Nothing analyzed yet.</span
+                    >
+                  </div>
+                  <div>
+                    <strong>Experience style:</strong>
+                    <span id="sentimentResponseText"
+                      >The app will adapt after your next reaction.</span
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="meter-list sentiment-meters">
+              <div class="meter-row">
+                <strong>Positive</strong>
+                <div class="meter-track">
+                  <div id="sentBarPositive" class="meter-fill positive"></div>
+                </div>
+                <span id="sentPctPositive">0%</span>
+              </div>
+              <div class="meter-row">
+                <strong>Neutral</strong>
+                <div class="meter-track">
+                  <div id="sentBarNeutral" class="meter-fill neutral"></div>
+                </div>
+                <span id="sentPctNeutral">0%</span>
+              </div>
+              <div class="meter-row">
+                <strong>Negative</strong>
+                <div class="meter-track">
+                  <div id="sentBarNegative" class="meter-fill negative"></div>
+                </div>
+                <span id="sentPctNegative">0%</span>
+              </div>
+            </div>
+            <div class="sentence-list" id="sentenceBreakdownList">
+              <div class="sentence-item empty">
+                Save a reaction to see the latest mood breakdown.
+              </div>
+            </div>
+          </section>
+
+          <section class="section stack">
+            <div>
+              <h2 style="font-size: 1rem">Badges</h2>
+              <p class="mini-note" style="margin-top: 4px">
+                A few lightweight rewards to make progress feel clear.
+              </p>
+            </div>
+            <div id="badgeList" class="badge-list"></div>
+          </section>
+
+          <section class="section stack">
+            <div>
+              <h2 style="font-size: 1rem">Map styles</h2>
+              <p class="mini-note" style="margin-top: 4px">
+                New looks for the map unlock as you build momentum.
+              </p>
+            </div>
+            <div id="unlockList" class="unlock-list"></div>
+          </section>
+
+          <section class="section stack">
+            <div>
+              <h2 style="font-size: 1rem">Session recap</h2>
+              <p class="mini-note" style="margin-top: 4px">
+                A short recap of where you explored and how the session felt.
+              </p>
+            </div>
+            <div id="recapCard" class="recap-card">
+              <div class="recap-title">No recap yet</div>
+              <div class="recap-body">
+                Explore a few places first, then create your recap.
+              </div>
+            </div>
+            <div class="action-row">
+              <button id="recapBtn" class="action-btn primary">
+                Generate recap
+              </button>
+              <button id="resetBtn" class="action-btn ghost">
+                Start fresh
+              </button>
+            </div>
+          </section>
+        </div>
+      </aside>
+
+      <main class="map-wrap">
+        <div id="loader" class="loader">
+          <div class="loader-card">
+            <div class="spinner"></div>
+            <div style="font-weight: 900">Loading…</div>
+            <div class="mini-note" style="margin-top: 4px">
+              Generating question, recap, or sentiment result.
+            </div>
+          </div>
+        </div>
+
+        <arcgis-map
+          id="mapEl"
+          basemap="arcgis/topographic"
+          center="-77.10131,38.88512"
+          zoom="16"
+        >
+          <arcgis-zoom slot="top-left"></arcgis-zoom>
+          <arcgis-home slot="top-left"></arcgis-home>
+          <arcgis-search slot="top-left"></arcgis-search>
+        </arcgis-map>
+      </main>
+    </div>
+
+    <div id="toastWrap" class="toast-wrap"></div>
+
+    <script type="module">
+      const [Graphic, GraphicsLayer, reactiveUtils] = await $arcgis.import([
+        '@arcgis/core/Graphic.js',
+        '@arcgis/core/layers/GraphicsLayer.js',
+        '@arcgis/core/core/reactiveUtils.js'
+      ])
+      const locator = await $arcgis.import('@arcgis/core/rest/locator.js')
+
+      const APP_MODE_KEY = 'geoexplorer_mode_v2026_2'
+      const STATS_KEY = 'geoexplorer_stats_v2026_1'
+      const SENTIMENT_KEY = 'geoexplorer_sentiments_v2026_1'
+      const BADGES_KEY = 'geoexplorer_badges_v2026_1'
+      const UNLOCKS_KEY = 'geoexplorer_unlocks_v2026_1'
+      const ACTIVE_BASEMAP_KEY = 'geoexplorer_active_basemap_v2026_1'
+      const QUESTION_CACHE_KEY = 'geoexplorer_question_cache_v2026_1'
+      const ROUND_LOG_KEY = 'geoexplorer_round_log_v2026_1'
+      const LAST_SENTIMENT_KEY = 'geoexplorer_last_sentiment_v2026_1'
+      const MODEL_STORAGE_KEY =
+        'localstorage://geoexplorer-difficulty-model-v2026-1'
+
+      const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses'
+      const AZURE_LANGUAGE_VERSIONS = ['2024-11-01', '2022-05-01']
+      const AZURE_LANGUAGE_PATH_FOR_VERSION = version =>
+        `/language/:analyze-text?api-version=${version}`
+      const GEOCODER_URL =
+        'https://geocode-api.arcgis.com/arcgis/rest/services/World/GeocodeServer'
+      const WGS84 = { wkid: 4326 }
+      const ESCAPE_MAP = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }
+
+      const DIFFICULTIES = [
+        { key: 'easy', name: 'Easy', deadline: 8 },
+        { key: 'medium', name: 'Medium', deadline: 11 },
+        { key: 'hard', name: 'Hard', deadline: 14 }
+      ]
+
+      const BADGE_RULES = [
+        {
+          id: 'first-click',
+          emoji: '🧭',
+          name: 'First Find',
+          description: 'Answer your first location quiz.',
+          check: stats => stats.attempts >= 1
+        },
+        {
+          id: 'hot-streak',
+          emoji: '🔥',
+          name: 'On a Roll',
+          description: 'Reach a streak of 3.',
+          check: stats => stats.bestStreak >= 3
+        },
+        {
+          id: 'fast-mapper',
+          emoji: '⚡',
+          name: 'Fast Mapper',
+          description: 'Get 3 fast correct answers.',
+          check: stats => stats.fastCorrect >= 3
+        },
+        {
+          id: 'mood-mapper',
+          emoji: '😊',
+          name: 'Mood Mapper',
+          description: 'Save 3 mood tags.',
+          check: stats => stats.reflections >= 3
+        },
+        {
+          id: 'local-pro',
+          emoji: '🗺️',
+          name: 'Local Pro',
+          description: 'Answer 8 correctly.',
+          check: stats => stats.correct >= 8
+        },
+        {
+          id: 'geo-legend',
+          emoji: '👑',
+          name: 'Geo Legend',
+          description: 'Reach 15 total interactions.',
+          check: stats => stats.attempts + stats.reflections >= 15
+        }
+      ]
+
+      const BASEMAP_UNLOCKS = [
+        {
+          id: 'arcgis/topographic',
+          name: 'Topographic',
+          requiredCorrect: 0,
+          why: 'Balanced reference for general exploration.'
+        },
+        {
+          id: 'arcgis/navigation',
+          name: 'Navigation',
+          requiredCorrect: 3,
+          why: 'Cleaner wayfinding context once the player settles in.'
+        },
+        {
+          id: 'arcgis/human-geography',
+          name: 'Human Geography',
+          requiredCorrect: 6,
+          why: 'More civic context for city-style prompts.'
+        },
+        {
+          id: 'arcgis/outdoors',
+          name: 'Outdoors',
+          requiredCorrect: 9,
+          why: 'Terrain-heavy look for parks, trails, and open space.'
+        },
+        {
+          id: 'arcgis/dark-gray',
+          name: 'Dark Gray',
+          requiredCorrect: 12,
+          why: 'Minimal look that makes overlays and markers pop.'
+        }
+      ]
+
+      const QUIZ_SCHEMA = {
+        type: 'object',
+        additionalProperties: false,
+        required: [
+          'question',
+          'options',
+          'answerIndex',
+          'explanation',
+          'difficultyFlavor'
+        ],
+        properties: {
+          question: { type: 'string' },
+          options: {
+            type: 'array',
+            minItems: 4,
+            maxItems: 4,
+            items: { type: 'string' }
+          },
+          answerIndex: { type: 'integer', minimum: 0, maximum: 3 },
+          explanation: { type: 'string' },
+          difficultyFlavor: { type: 'string' }
+        }
+      }
+
+      const RECAP_SCHEMA = {
+        type: 'object',
+        additionalProperties: false,
+        required: ['title', 'summary', 'tone', 'nextBeat'],
+        properties: {
+          title: { type: 'string' },
+          summary: { type: 'string' },
+          tone: { type: 'string' },
+          nextBeat: { type: 'string' }
+        }
+      }
+
+      const DEFAULT_CONFIG = {
+        arcgisApiKey:
+          'yourkey',
+        openaiApiKey:
+          'yourkey',
+        openaiModel: 'gpt-5.4-mini',
+        azureEndpoint:
+          'yourendpoint',
+        azureKey:
+          'yourkey'
+      }
+
+      const DEFAULT_STATS = {
+        attempts: 0,
+        correct: 0,
+        avgSec: 0,
+        streak: 0,
+        bestStreak: 0,
+        fastCorrect: 0,
+        reflections: 0,
+        abandoned: 0
+      }
+
+      const el = {
+        sidebar: document.getElementById('sidebar'),
+        loader: document.getElementById('loader'),
+        toastWrap: document.getElementById('toastWrap'),
+        mapEl: document.getElementById('mapEl'),
+        modeSwitch: document.getElementById('modeSwitch'),
+        statDifficulty: document.getElementById('statDifficulty'),
+        statAttempts: document.getElementById('statAttempts'),
+        statAccuracy: document.getElementById('statAccuracy'),
+        statAvgTime: document.getElementById('statAvgTime'),
+        statStreak: document.getElementById('statStreak'),
+        statReflections: document.getElementById('statReflections'),
+        barEasy: document.getElementById('barEasy'),
+        barMedium: document.getElementById('barMedium'),
+        barHard: document.getElementById('barHard'),
+        pctEasy: document.getElementById('pctEasy'),
+        pctMedium: document.getElementById('pctMedium'),
+        pctHard: document.getElementById('pctHard'),
+        modelNote: document.getElementById('modelNote'),
+        difficultyDecisionBox: document.getElementById('difficultyDecisionBox'),
+        difficultyDecisionChip: document.getElementById(
+          'difficultyDecisionChip'
+        ),
+        difficultySignalText: document.getElementById('difficultySignalText'),
+        difficultyDecisionText: document.getElementById(
+          'difficultyDecisionText'
+        ),
+        difficultyResponseText: document.getElementById(
+          'difficultyResponseText'
+        ),
+        roundLogList: document.getElementById('roundLogList'),
+        sentimentRouteBox: document.getElementById('sentimentRouteBox'),
+        sentimentRouteChip: document.getElementById('sentimentRouteChip'),
+        sentimentSignalText: document.getElementById('sentimentSignalText'),
+        sentimentDecisionText: document.getElementById('sentimentDecisionText'),
+        sentimentResponseText: document.getElementById('sentimentResponseText'),
+        sentBarPositive: document.getElementById('sentBarPositive'),
+        sentBarNeutral: document.getElementById('sentBarNeutral'),
+        sentBarNegative: document.getElementById('sentBarNegative'),
+        sentPctPositive: document.getElementById('sentPctPositive'),
+        sentPctNeutral: document.getElementById('sentPctNeutral'),
+        sentPctNegative: document.getElementById('sentPctNegative'),
+        sentenceBreakdownList: document.getElementById('sentenceBreakdownList'),
+        badgeList: document.getElementById('badgeList'),
+        unlockList: document.getElementById('unlockList'),
+        recapCard: document.getElementById('recapCard'),
+        recapBtn: document.getElementById('recapBtn'),
+        resetBtn: document.getElementById('resetBtn')
+      }
+
+      const config = { ...DEFAULT_CONFIG }
+      let mode = localStorage.getItem(APP_MODE_KEY) || 'combined'
+      let currentDifficultyIndex = 0
+      let map
+      let view
+      let clickLayer
+      let moodLayer
+      let adaptiveModel
+      let lastRound = null
+      let currentProbabilities = [0.7, 0.2, 0.1]
+      let openingPopup = false
+
+      const store = {
+        get(key, fallback) {
+          const raw = localStorage.getItem(key)
+          if (!raw) return structuredClone(fallback)
+          try {
+            return JSON.parse(raw)
+          } catch {
+            return structuredClone(fallback)
+          }
+        },
+        set(key, value) {
+          localStorage.setItem(key, JSON.stringify(value))
+        },
+        remove(key) {
+          localStorage.removeItem(key)
+        }
+      }
+
+      const point = (lon, lat) => ({
+        type: 'point',
+        longitude: lon,
+        latitude: lat,
+        spatialReference: WGS84
+      })
+
+      const escapeHtml = value =>
+        String(value ?? '').replace(/[&<>"']/g, char => ESCAPE_MAP[char])
+      const clamp = (value, min, max) => Math.max(min, Math.min(max, value))
+      const average = (previous, count, current) =>
+        count <= 1 ? current : (previous * (count - 1) + current) / count
+      const difficultyForIndex = index =>
+        DIFFICULTIES[clamp(index, 0, DIFFICULTIES.length - 1)]
+      const questionCacheKey = (lat, lon, diffKey) =>
+        `${diffKey}:${lat.toFixed(3)},${lon.toFixed(3)}`
+      const getStats = () => store.get(STATS_KEY, DEFAULT_STATS)
+      const getSentiments = () => store.get(SENTIMENT_KEY, [])
+      const getBadges = () => store.get(BADGES_KEY, [])
+      const getUnlockState = () =>
+        store.get(UNLOCKS_KEY, { ids: [BASEMAP_UNLOCKS[0].id] })
+      const getActiveBasemap = () =>
+        store.get(ACTIVE_BASEMAP_KEY, BASEMAP_UNLOCKS[0].id)
+      const getQuestionCache = () => store.get(QUESTION_CACHE_KEY, {})
+      const getRoundLog = () => store.get(ROUND_LOG_KEY, [])
+      const getLastSentiment = () => store.get(LAST_SENTIMENT_KEY, null)
+
+      function toast(title, message) {
+        const node = document.createElement('div')
+        node.className = 'toast'
+        node.innerHTML = `<div class="title">${escapeHtml(
+          title
+        )}</div><div>${escapeHtml(message)}</div>`
+        el.toastWrap.appendChild(node)
+        setTimeout(() => node.remove(), 5000)
+      }
+
+      function setLoading(active) {
+        el.loader.classList.toggle('active', active)
+      }
+
+      function withLoading(fn) {
+        return async (...args) => {
+          setLoading(true)
+          try {
+            return await fn(...args)
+          } finally {
+            setLoading(false)
+          }
+        }
+      }
+
+      function getSentimentStyle(label) {
+        if (label === 'positive')
+          return { emoji: '😊', color: '#16a34a', className: 'positive' }
+        if (label === 'negative')
+          return { emoji: '🙁', color: '#dc2626', className: 'negative' }
+        if (label === 'mixed')
+          return { emoji: '😵', color: '#b45309', className: 'mixed' }
+        return { emoji: '😐', color: '#64748b', className: 'neutral' }
+      }
+
+      function renderMode() {
+        const buttons =
+          el.modeSwitch?.querySelectorAll('button[data-mode]') || []
+        buttons.forEach(button => {
+          button.classList.toggle('active', button.dataset.mode === mode)
+        })
+      }
+
+      function updateStatsUi() {
+        const stats = getStats()
+        const accuracy = stats.attempts
+          ? Math.round((stats.correct / stats.attempts) * 100)
+          : 0
+        el.statDifficulty.textContent = difficultyForIndex(
+          currentDifficultyIndex
+        ).name
+        el.statAttempts.textContent = String(stats.attempts)
+        el.statAccuracy.textContent = `${accuracy}%`
+        el.statAvgTime.textContent = `${(stats.avgSec || 0).toFixed(1)}s`
+        el.statStreak.textContent = String(stats.streak)
+        el.statReflections.textContent = String(stats.reflections)
+      }
+
+      function renderModelProbabilities(
+        probabilities = currentProbabilities,
+        reason = 'Waiting for the next answer.'
+      ) {
+        currentProbabilities = probabilities
+        const ids = [
+          [el.barEasy, el.pctEasy],
+          [el.barMedium, el.pctMedium],
+          [el.barHard, el.pctHard]
+        ]
+        probabilities.forEach((value, index) => {
+          const pct = Math.round(value * 100)
+          ids[index][0].style.width = `${pct}%`
+          ids[index][1].textContent = `${pct}%`
+        })
+        const nextIndex = probabilities.indexOf(Math.max(...probabilities))
+        el.modelNote.textContent = `${reason} The next challenge is leaning ${
+          difficultyForIndex(nextIndex).name
+        }.`
+      }
+
+      function renderBadges() {
+        const earned = new Set(getBadges())
+        el.badgeList.innerHTML = BADGE_RULES.map(badge => {
+          const unlocked = earned.has(badge.id)
+          return `<div class="badge-chip ${
+            unlocked ? '' : 'locked'
+          }" title="${escapeHtml(badge.description)}">${
+            badge.emoji
+          } ${escapeHtml(
+            unlocked ? badge.name : badge.name + ' · locked'
+          )}</div>`
+        }).join('')
+      }
+
+      function maybeAwardBadges() {
+        const stats = getStats()
+        const earned = new Set(getBadges())
+        const newBadges = []
+        BADGE_RULES.forEach(badge => {
+          if (!earned.has(badge.id) && badge.check(stats)) {
+            earned.add(badge.id)
+            newBadges.push(badge)
+          }
+        })
+        if (newBadges.length) {
+          store.set(BADGES_KEY, [...earned])
+          renderBadges()
+          newBadges.forEach(badge =>
+            toast(`Badge earned: ${badge.name}`, badge.description)
+          )
+        }
+      }
+
+      function renderUnlocks() {
+        const unlockState = getUnlockState()
+        const active = getActiveBasemap()
+        const stats = getStats()
+
+        el.unlockList.innerHTML = BASEMAP_UNLOCKS.map(item => {
+          const unlocked = unlockState.ids.includes(item.id)
+          const reqText =
+            item.requiredCorrect === 0
+              ? 'Unlocked by default'
+              : unlocked
+              ? 'Unlocked'
+              : `Unlock at ${item.requiredCorrect} correct (${stats.correct}/${item.requiredCorrect})`
+          return `
+            <div class="unlock-card ${unlocked ? '' : 'locked'}">
+              <input type="radio" name="basemap" value="${escapeHtml(
+                item.id
+              )}" ${unlocked ? '' : 'disabled'} ${
+            active === item.id ? 'checked' : ''
+          } />
+              <div>
+                <div class="name">${escapeHtml(item.name)} ${
+            unlocked ? '' : '🔒'
+          }</div>
+                <div class="why">${escapeHtml(item.why)}</div>
+                <div class="req">${escapeHtml(reqText)}</div>
+              </div>
+            </div>
+          `
+        }).join('')
+
+        el.unlockList
+          .querySelectorAll('input[name="basemap"]')
+          .forEach(input => {
+            input.addEventListener('change', () => {
+              const targetId = input.value
+              if (!getUnlockState().ids.includes(targetId)) return
+              store.set(ACTIVE_BASEMAP_KEY, targetId)
+              if (map) map.basemap = targetId
+            })
+          })
+      }
+
+      function maybeUnlockBasemaps() {
+        const stats = getStats()
+        const unlockState = getUnlockState()
+        const newUnlocks = BASEMAP_UNLOCKS.filter(
+          item =>
+            stats.correct >= item.requiredCorrect &&
+            !unlockState.ids.includes(item.id)
+        )
+        if (newUnlocks.length) {
+          unlockState.ids.push(...newUnlocks.map(item => item.id))
+          store.set(UNLOCKS_KEY, unlockState)
+          const newest = newUnlocks[newUnlocks.length - 1]
+          store.set(ACTIVE_BASEMAP_KEY, newest.id)
+          if (map) map.basemap = newest.id
+          toast(`Basemap unlocked: ${newest.name}`, newest.why)
+        }
+        renderUnlocks()
+      }
+
+      function renderRecapCard({ title, summary, tone, nextBeat } = {}) {
+        if (!title) {
+          el.recapCard.innerHTML = `
+            <div class="recap-title">No recap yet</div>
+            <div class="recap-body">Explore a few places first, then create your recap.</div>
+          `
+          return
+        }
+        el.recapCard.innerHTML = `
+          <div class="recap-title">${escapeHtml(title)}</div>
+          <div class="chip-row">
+            <span class="chip">Tone: ${escapeHtml(tone)}</span>
+          </div>
+          <div class="recap-body">${escapeHtml(summary)}</div>
+          <div class="mini-note"><strong>Next beat:</strong> ${escapeHtml(
+            nextBeat
+          )}</div>
+        `
+      }
+
+      function sentimentRouteFromDocument(doc) {
+        const sentiment = doc?.sentiment || 'neutral'
+        const scores = doc?.confidenceScores || {}
+        const positive = scores.positive ?? 0
+        const negative = scores.negative ?? 0
+
+        if (sentiment === 'positive' && positive >= 0.75) {
+          return {
+            key: 'positive',
+            chip: 'Upbeat',
+            decision: 'Your reaction sounds clearly positive.',
+            response: 'We will keep the tone bright and the next step light.'
+          }
+        }
+        if (sentiment === 'negative' && negative >= 0.55) {
+          return {
+            key: 'negative',
+            chip: 'Supportive',
+            decision: 'Your reaction sounds more frustrated or disappointed.',
+            response:
+              'We will keep the experience calmer and a little more supportive.'
+          }
+        }
+        if (sentiment === 'mixed') {
+          return {
+            key: 'mixed',
+            chip: 'Balanced',
+            decision: 'Your reaction has both positive and negative signals.',
+            response: 'We will keep things balanced and avoid overreacting.'
+          }
+        }
+        return {
+          key: 'neutral',
+          chip: 'Steady',
+          decision: 'Your reaction reads as fairly neutral.',
+          response: 'We will keep the experience steady.'
+        }
+      }
+
+      function renderRoundLog() {
+        const rounds = getRoundLog()
+        if (!rounds.length) {
+          el.roundLogList.innerHTML =
+            '<div class="log-item empty">Complete a few place challenges to build your recent activity.</div>'
+          return
+        }
+        el.roundLogList.innerHTML = rounds
+          .map(
+            item => `
+          <div class="log-item">
+            <strong>Round ${escapeHtml(String(item.round || '?'))}</strong>
+            <div>${escapeHtml(item.label || '')}</div>
+          </div>
+        `
+          )
+          .join('')
+      }
+
+      function pushRoundLog(entry) {
+        const rounds = getRoundLog()
+        rounds.unshift(entry)
+        if (rounds.length > 6) rounds.splice(6)
+        store.set(ROUND_LOG_KEY, rounds)
+        renderRoundLog()
+      }
+
+      function renderDifficultyDecision({
+        key = 'neutral',
+        chip = 'Getting started',
+        signal = 'Complete your first place challenge to get started.',
+        decision = 'The pace will settle in after your first round.',
+        response = 'The next challenge will keep adapting in the background.'
+      } = {}) {
+        if (
+          !el.difficultyDecisionBox ||
+          !el.difficultyDecisionChip ||
+          !el.difficultySignalText ||
+          !el.difficultyDecisionText ||
+          !el.difficultyResponseText
+        )
+          return
+        el.difficultyDecisionBox.className = `route-box ${key}`
+        el.difficultyDecisionChip.className = `route-chip ${key}`
+        el.difficultyDecisionChip.textContent = chip
+        el.difficultySignalText.textContent = signal
+        el.difficultyDecisionText.textContent = decision
+        el.difficultyResponseText.textContent = response
+      }
+
+      function renderSentimentMeters(scores = {}) {
+        const positive = Math.round((scores.positive ?? 0) * 100)
+        const neutral = Math.round((scores.neutral ?? 0) * 100)
+        const negative = Math.round((scores.negative ?? 0) * 100)
+        el.sentBarPositive.style.width = `${positive}%`
+        el.sentBarNeutral.style.width = `${neutral}%`
+        el.sentBarNegative.style.width = `${negative}%`
+        el.sentPctPositive.textContent = `${positive}%`
+        el.sentPctNeutral.textContent = `${neutral}%`
+        el.sentPctNegative.textContent = `${negative}%`
+      }
+
+      function renderSentenceBreakdown(sentences = []) {
+        if (!sentences.length) {
+          el.sentenceBreakdownList.innerHTML =
+            '<div class="sentence-item empty">Save a reaction to see the latest mood breakdown.</div>'
+          return
+        }
+        el.sentenceBreakdownList.innerHTML = sentences
+          .slice(0, 4)
+          .map(sentence => {
+            const scores = sentence.confidenceScores || {}
+            const top = [
+              ['positive', scores.positive ?? 0],
+              ['neutral', scores.neutral ?? 0],
+              ['negative', scores.negative ?? 0]
+            ].sort((a, b) => b[1] - a[1])[0]
+            const sentiment = String(sentence.sentiment || 'neutral')
+            const sentimentLabel =
+              sentiment.charAt(0).toUpperCase() + sentiment.slice(1)
+            const topLabel = top[0].charAt(0).toUpperCase() + top[0].slice(1)
+            return `
+            <div class="sentence-item">
+              <div class="sentence-top"><span>${escapeHtml(
+                sentimentLabel
+              )}</span><span>${escapeHtml(topLabel)} ${Math.round(
+              top[1] * 100
+            )}%</span></div>
+              <div>${escapeHtml(sentence.text || '')}</div>
+            </div>
+          `
+          })
+          .join('')
+      }
+
+      function renderSentimentRoute(entry = getLastSentiment()) {
+        if (!entry) {
+          el.sentimentRouteBox.className = 'route-box neutral'
+          el.sentimentRouteChip.className = 'route-chip neutral'
+          el.sentimentRouteChip.textContent = 'No mood yet'
+          el.sentimentSignalText.textContent = 'No reaction saved yet.'
+          el.sentimentDecisionText.textContent = 'Nothing analyzed yet.'
+          el.sentimentResponseText.textContent =
+            'The app will adapt after your next reaction.'
+          renderSentimentMeters({ positive: 0, neutral: 0, negative: 0 })
+          renderSentenceBreakdown([])
+          return
+        }
+        el.sentimentRouteBox.className = `route-box ${
+          entry.routeKey || 'neutral'
+        }`
+        el.sentimentRouteChip.className = `route-chip ${
+          entry.routeKey || 'neutral'
+        }`
+        el.sentimentRouteChip.textContent = entry.routeChip || 'Steady'
+        el.sentimentSignalText.textContent =
+          entry.signal || 'A reaction was saved.'
+        el.sentimentDecisionText.textContent =
+          entry.decision || 'A mood read is available.'
+        el.sentimentResponseText.textContent =
+          entry.response || 'The experience has been adjusted.'
+        renderSentimentMeters(entry.scores || {})
+        renderSentenceBreakdown(entry.sentences || [])
+      }
+
+      function updateAllSidebarUi() {
+        updateStatsUi()
+        renderBadges()
+        renderUnlocks()
+        renderRoundLog()
+        renderSentimentRoute()
+      }
+
+      function normalizeTime(seconds, deadline) {
+        return clamp(seconds / Math.max(deadline, 4), 0, 1)
+      }
+
+      function normalizeLevel(index) {
+        return clamp(index / (DIFFICULTIES.length - 1), 0, 1)
+      }
+
+      function normalizeStreak(streak) {
+        return clamp(streak / 5, 0, 1)
+      }
+
+      function oneHot(targetIndex) {
+        return DIFFICULTIES.map((_, index) => (index === targetIndex ? 1 : 0))
+      }
+
+      function seedTrainingData() {
+        const samples = [
+          [1, 0.2, 0.0, 0.0, 1],
+          [1, 0.35, 0.0, 0.2, 1],
+          [0, 0.9, 0.0, 0.0, 0],
+          [1, 0.3, 0.5, 0.4, 2],
+          [1, 0.52, 0.5, 0.2, 1],
+          [0, 0.95, 0.5, 0.0, 0],
+          [1, 0.38, 1.0, 0.6, 2],
+          [0, 0.88, 1.0, 0.0, 1],
+          [1, 0.48, 1.0, 0.8, 2],
+          [0, 0.96, 1.0, 0.0, 0]
+        ]
+        const xs = tf.tensor2d(
+          samples.map(([correct, timeNorm, levelNorm, streakNorm]) => [
+            correct,
+            timeNorm,
+            levelNorm,
+            streakNorm
+          ])
+        )
+        const ys = tf.tensor2d(samples.map(sample => oneHot(sample[4])))
+        return { xs, ys }
+      }
+
+      async function createAdaptiveModel() {
+        const model = tf.sequential()
+        model.add(
+          tf.layers.dense({ units: 12, activation: 'relu', inputShape: [4] })
+        )
+        model.add(tf.layers.dense({ units: 8, activation: 'relu' }))
+        model.add(tf.layers.dense({ units: 3, activation: 'softmax' }))
+        model.compile({
+          optimizer: tf.train.adam(0.03),
+          loss: 'categoricalCrossentropy'
+        })
+        return model
+      }
+
+      async function initAdaptiveModel() {
+        await tf.ready()
+        try {
+          adaptiveModel = await tf.loadLayersModel(MODEL_STORAGE_KEY)
+          adaptiveModel.compile({
+            optimizer: tf.train.adam(0.03),
+            loss: 'categoricalCrossentropy'
+          })
+        } catch {
+          adaptiveModel = await createAdaptiveModel()
+          const { xs, ys } = seedTrainingData()
+          await adaptiveModel.fit(xs, ys, {
+            epochs: 100,
+            batchSize: 8,
+            shuffle: true,
+            verbose: 0
+          })
+          xs.dispose()
+          ys.dispose()
+          await adaptiveModel.save(MODEL_STORAGE_KEY)
+        }
+      }
+
+      function modelFeatures({ correct, seconds, difficultyIndex, streak }) {
+        return [
+          correct ? 1 : 0,
+          normalizeTime(seconds, difficultyForIndex(difficultyIndex).deadline),
+          normalizeLevel(difficultyIndex),
+          normalizeStreak(streak)
+        ]
+      }
+
+      function predictProbabilities(featureVector = [1, 0.25, 0, 0]) {
+        if (!adaptiveModel) return [0.7, 0.2, 0.1]
+        const prediction = tf.tidy(() => {
+          const input = tf.tensor2d([featureVector])
+          return adaptiveModel.predict(input).dataSync()
+        })
+        const result = Array.from(prediction)
+        return result
+      }
+
+      async function trainAdaptiveModel({
+        correct,
+        seconds,
+        difficultyIndex,
+        streak
+      }) {
+        const baseTarget = difficultyIndex
+        let nextTarget = baseTarget
+        const profile = difficultyForIndex(difficultyIndex)
+        const fast = seconds <= profile.deadline * 0.85
+        const slow = seconds >= profile.deadline * 1.08
+
+        if (correct && fast) nextTarget = clamp(difficultyIndex + 1, 0, 2)
+        else if (!correct && difficultyIndex > 0)
+          nextTarget = clamp(difficultyIndex - 1, 0, 2)
+        else if (slow && difficultyIndex > 0)
+          nextTarget = clamp(difficultyIndex - 1, 0, 2)
+        else if (correct && difficultyIndex === 1) nextTarget = 1
+
+        const xs = tf.tensor2d([
+          modelFeatures({ correct, seconds, difficultyIndex, streak })
+        ])
+        const ys = tf.tensor2d([oneHot(nextTarget)])
+        await adaptiveModel.fit(xs, ys, {
+          epochs: 10,
+          batchSize: 1,
+          shuffle: true,
+          verbose: 0
+        })
+        xs.dispose()
+        ys.dispose()
+        await adaptiveModel.save(MODEL_STORAGE_KEY)
+
+        const preview = predictProbabilities(
+          modelFeatures({ correct, seconds, difficultyIndex, streak })
+        )
+        const routeKey =
+          nextTarget > difficultyIndex
+            ? 'positive'
+            : nextTarget < difficultyIndex
+            ? 'negative'
+            : 'neutral'
+        const routeChip =
+          nextTarget > difficultyIndex
+            ? 'Leveling up'
+            : nextTarget < difficultyIndex
+            ? 'Taking it easier'
+            : 'Staying steady'
+        const decisionText =
+          nextTarget > difficultyIndex
+            ? `You handled that round well, so the next challenge can stretch a little more at ${
+                difficultyForIndex(nextTarget).name
+              } pace.`
+            : nextTarget < difficultyIndex
+            ? `That round looked tougher, so the next challenge will ease back to ${
+                difficultyForIndex(nextTarget).name
+              } pace.`
+            : `You are in a good range right now, so the next challenge will stay at ${
+                difficultyForIndex(nextTarget).name
+              } pace.`
+        return {
+          nextTarget,
+          probabilities: preview,
+          routeKey,
+          routeChip,
+          decisionText
+        }
+      }
+
+      function placeMarker(lon, lat) {
+        if (!clickLayer) return
+        clickLayer.removeAll()
+        clickLayer.add(
+          new Graphic({
+            geometry: point(lon, lat),
+            symbol: {
+              type: 'simple-marker',
+              style: 'circle',
+              size: 10,
+              color: '#4f46e5',
+              outline: { color: '#ffffff', width: 1.5 }
+            }
+          })
+        )
+      }
+
+      function addMoodMarker({
+        lon,
+        lat,
+        label,
+        confidence,
+        text,
+        placeTitle,
+        timestamp
+      }) {
+        if (!moodLayer) return
+        const style = getSentimentStyle(label)
+        const safeText = escapeHtml(text)
+        const safeTitle = escapeHtml(placeTitle)
+        const when = new Date(timestamp).toLocaleString()
+        const content = `
+          <div style="font: 13px/1.35 Inter, system-ui, sans-serif; display: grid; gap: 6px;">
+            <div><strong>Sentiment:</strong> ${escapeHtml(label)} (${Math.round(
+          confidence * 100
+        )}%) ${style.emoji}</div>
+            <div><strong>Comment:</strong> ${safeText}</div>
+            <div style="color:#64748b"><strong>Added:</strong> ${escapeHtml(
+              when
+            )}</div>
+          </div>
+        `
+        const bubble = new Graphic({
+          geometry: point(lon, lat),
+          symbol: {
+            type: 'simple-marker',
+            style: 'circle',
+            size: 14,
+            color: style.color,
+            outline: { color: '#ffffff', width: 1.5 }
+          },
+          popupTemplate: {
+            title: safeTitle,
+            content
+          }
+        })
+        moodLayer.add(bubble)
+      }
+
+      async function reverseGeocode(lat, lon) {
+        return locator.locationToAddress(GEOCODER_URL, {
+          location: point(lon, lat)
+        })
+      }
+
+      async function nearbyCandidates(lat, lon) {
+        const results = await locator.addressToLocations(GEOCODER_URL, {
+          location: point(lon, lat),
+          maxLocations: 24,
+          outFields: [
+            'PlaceName',
+            'LongLabel',
+            'Match_addr',
+            'City',
+            'Neighborhood',
+            'Region',
+            'Type'
+          ]
+        })
+
+        const seen = new Set()
+        return (results || [])
+          .map(item => {
+            const attrs = item.attributes || {}
+            const raw =
+              attrs.PlaceName || attrs.LongLabel || attrs.Match_addr || ''
+            const name = raw.split(',')[0]?.trim()
+            if (!name || seen.has(name)) return null
+            seen.add(name)
+            return name
+          })
+          .filter(Boolean)
+          .slice(0, 10)
+      }
+
+      function getPlaceTitle(reverse, nearby, lat, lon) {
+        return (
+          nearby[0] ||
+          reverse?.attributes?.PlaceName ||
+          reverse?.attributes?.Match_addr ||
+          reverse?.address ||
+          `${lat.toFixed(4)}, ${lon.toFixed(4)}`
+        )
+      }
+
+      async function postJson(url, body, headers = {}, timeoutMs = 20000) {
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), timeoutMs)
+        try {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...headers
+            },
+            body: JSON.stringify(body),
+            signal: controller.signal
+          })
+          const text = await response.text()
+          const json = text ? JSON.parse(text) : {}
+          if (!response.ok) {
+            const message =
+              json?.error?.message ||
+              json?.message ||
+              `${response.status} ${response.statusText}`
+            throw new Error(message)
+          }
+          return json
+        } finally {
+          clearTimeout(timeout)
+        }
+      }
+
+      function ensureConfigFor(featureName) {
+        if (!config.arcgisApiKey) {
+          toast(
+            'ArcGIS key missing',
+            'ArcGIS access is not available right now.'
+          )
+        }
+        if (featureName === 'openai' && !config.openaiApiKey) {
+          throw new Error('OpenAI access is not available right now.')
+        }
+        if (
+          featureName === 'azure' &&
+          (!config.azureKey || !config.azureEndpoint)
+        ) {
+          throw new Error('Azure Language access is not available right now.')
+        }
+      }
+
+      function extractOutputText(responseJson) {
+        if (responseJson.output_text) return responseJson.output_text
+        const chunks = []
+        const outputs = responseJson.output || []
+        for (const item of outputs) {
+          for (const content of item.content || []) {
+            if (typeof content.text === 'string') chunks.push(content.text)
+            if (typeof content.output_text === 'string')
+              chunks.push(content.output_text)
+            if (typeof content.value === 'string') chunks.push(content.value)
+          }
+        }
+        return chunks.join('\n').trim()
+      }
+
+      async function openAiStructuredJson({ name, schema, system, user }) {
+        ensureConfigFor('openai')
+        const responseJson = await postJson(
+          OPENAI_RESPONSES_URL,
+          {
+            model: config.openaiModel || 'gpt-5.4-mini',
+            input: [
+              { role: 'system', content: system },
+              { role: 'user', content: user }
+            ],
+            text: {
+              format: {
+                type: 'json_schema',
+                name,
+                schema,
+                strict: true
+              }
+            }
+          },
+          {
+            Authorization: `Bearer ${config.openaiApiKey}`
+          }
+        )
+        const outputText = extractOutputText(responseJson)
+        if (!outputText) throw new Error('OpenAI returned an empty response.')
+        return JSON.parse(outputText)
+      }
+
+      async function generateQuizQuestion({
+        placeTitle,
+        lat,
+        lon,
+        nearbyNames,
+        difficulty,
+        reverseSummary
+      }) {
+        const cache = getQuestionCache()
+        const key = questionCacheKey(lat, lon, difficulty.key)
+        if (cache[key]) return cache[key]
+
+        const system =
+          'You are a map-based quiz writer creating concise, fair, locally flavored multiple-choice questions for a polished consumer-facing app.'
+        const difficultyGuide =
+          difficulty.key === 'easy'
+            ? [
+                'Write an easy question.',
+                'Easy means broad, obvious map context such as city, campus, district, landmark category, or major place identity.',
+                'Do not ask about exact building names, fine-grained orientation, or niche local trivia.',
+                'Use very clear distractors from the same category.'
+              ].join(' ')
+            : difficulty.key === 'medium'
+            ? [
+                'Write a medium question.',
+                'Medium means modest spatial reasoning using nearby context, corridors, transit, neighborhoods, or well-labeled landmarks.',
+                'The user should need to think for a moment, but the answer should still feel fair from visible map context.',
+                'Use plausible distractors that are related to the same area or place type.'
+              ].join(' ')
+            : [
+                'Write a hard question.',
+                'Hard means finer-grained place reasoning, relative location, nearby landmark distinction, or strong local context from the clicked area.',
+                'Keep it fair and map-grounded, not obscure trivia or something requiring insider knowledge.',
+                'Use four highly plausible distractors so the question feels challenging but still answerable.'
+              ].join(' ')
+
+        const user = [
+          `Create one location quiz for the clicked place.`,
+          `Place title: ${placeTitle}`,
+          `Coordinates: ${lat.toFixed(5)}, ${lon.toFixed(5)}`,
+          `Reverse geocode summary: ${
+            reverseSummary || 'No reverse geocode summary available.'
+          }`,
+          `Nearby names you may reference: ${JSON.stringify(
+            nearbyNames.slice(0, 10)
+          )}`,
+          `Difficulty: ${difficulty.key}`,
+          `Difficulty guide: ${difficultyGuide}`,
+          `Rules:`,
+          `- Exactly four answer options.`,
+          `- Exactly one correct answer.`,
+          `- Avoid trick wording, gotcha wording, and all-of-the-above style answers.`,
+          `- Keep the question answerable from map context, broad geographic reasoning, and visible local clues.`,
+          `- Match the difficulty level clearly. Easy should feel easy, medium should feel medium, and hard should feel meaningfully harder.`,
+          `- All four options must belong to the same answer category, such as four cities, four landmarks, four neighborhoods, or four institutions.`,
+          `- The explanation should briefly say why the correct answer fits the clicked area.`,
+          `- Set difficultyFlavor to a short customer-facing label like "Quick city read", "Nearby context", or "Fine-grained local clue".`
+        ].join('\n')
+
+        const generated = await openAiStructuredJson({
+          name: 'geoexplorer_quiz',
+          schema: QUIZ_SCHEMA,
+          system,
+          user
+        })
+
+        const quiz = {
+          question: String(
+            generated.question || `Which of these is near ${placeTitle}?`
+          ),
+          options: (generated.options || [])
+            .slice(0, 4)
+            .map(value => String(value)),
+          answerIndex: clamp(Number(generated.answerIndex || 0), 0, 3),
+          explanation: String(generated.explanation || ''),
+          difficultyFlavor: String(
+            generated.difficultyFlavor || difficulty.name
+          )
+        }
+
+        cache[key] = quiz
+        const keys = Object.keys(cache)
+        if (keys.length > 60) {
+          keys.slice(0, 10).forEach(cacheKey => delete cache[cacheKey])
+        }
+        store.set(QUESTION_CACHE_KEY, cache)
+        return quiz
+      }
+
+      async function analyzeSentiment(text) {
+        ensureConfigFor('azure')
+        const body = {
+          kind: 'SentimentAnalysis',
+          parameters: {
+            modelVersion: 'latest',
+            opinionMining: true
+          },
+          analysisInput: {
+            documents: [
+              {
+                id: '1',
+                language: 'en',
+                text
+              }
+            ]
+          }
+        }
+
+        const endpoint = (config.azureEndpoint || '').replace(/\/$/, '')
+        let lastError
+        for (const version of AZURE_LANGUAGE_VERSIONS) {
+          try {
+            const responseJson = await postJson(
+              `${endpoint}${AZURE_LANGUAGE_PATH_FOR_VERSION(version)}`,
+              body,
+              {
+                'Ocp-Apim-Subscription-Key': config.azureKey
+              }
+            )
+            const doc = responseJson?.results?.documents?.[0]
+            if (!doc)
+              throw new Error('Azure did not return a sentiment result.')
+            const scores = doc.confidenceScores || {
+              positive: 0.34,
+              neutral: 0.33,
+              negative: 0.33
+            }
+            const confidence = Math.max(
+              scores.positive || 0,
+              scores.neutral || 0,
+              scores.negative || 0
+            )
+            const route = sentimentRouteFromDocument(doc)
+            return {
+              label: doc.sentiment || 'neutral',
+              confidence,
+              scores,
+              sentences: doc.sentences || [],
+              routeKey: route.key,
+              routeChip: route.chip,
+              decision: route.decision,
+              response: route.response,
+              apiVersion: version
+            }
+          } catch (error) {
+            lastError = error
+          }
+        }
+        throw lastError || new Error('Azure sentiment analysis failed.')
+      }
+
+      async function generateRecap() {
+        const sentiments = getSentiments().slice(-8)
+        const stats = getStats()
+        if (!sentiments.length && !stats.attempts) {
+          throw new Error('Explore the map a bit first.')
+        }
+
+        const lines = sentiments
+          .map(entry => `- ${entry.placeTitle}: ${entry.label} (${entry.text})`)
+          .join('\n')
+        const system =
+          'You summarize interactive map sessions for a polished consumer-facing app. Keep it short, natural, and grounded.'
+        const user = [
+          `Write a compact recap of this session.`,
+          `Stats: attempts=${stats.attempts}, correct=${
+            stats.correct
+          }, avgTime=${stats.avgSec.toFixed(1)}, streak=${
+            stats.streak
+          }, reflections=${stats.reflections}`,
+          `Mood tags:`,
+          lines || '- No mood tags yet',
+          `Requirements:`,
+          `- Title should be short and stage-friendly.`,
+          `- Summary should be 2 to 4 sentences.`,
+          `- Tone is a single short phrase like upbeat, cautious, mixed, confident, etc.`,
+          `- Next beat is one short sentence about what the user might do next.`
+        ].join('\n')
+
+        return openAiStructuredJson({
+          name: 'geoexplorer_recap',
+          schema: RECAP_SCHEMA,
+          system,
+          user
+        })
+      }
+
+      function saveSentiment(entry) {
+        const sentiments = getSentiments()
+        sentiments.push(entry)
+        if (sentiments.length > 150)
+          sentiments.splice(0, sentiments.length - 150)
+        store.set(SENTIMENT_KEY, sentiments)
+      }
+
+      function updateStatsAfterQuiz({ correct, seconds, abandoned = false }) {
+        const stats = getStats()
+        stats.attempts += 1
+        if (correct) stats.correct += 1
+        if (
+          correct &&
+          seconds <= difficultyForIndex(currentDifficultyIndex).deadline * 0.85
+        ) {
+          stats.fastCorrect += 1
+        }
+        stats.streak = correct ? stats.streak + 1 : 0
+        stats.bestStreak = Math.max(stats.bestStreak, stats.streak)
+        stats.avgSec = average(stats.avgSec || 0, stats.attempts, seconds)
+        if (abandoned) stats.abandoned += 1
+        store.set(STATS_KEY, stats)
+        updateStatsUi()
+        maybeAwardBadges()
+        maybeUnlockBasemaps()
+        return stats
+      }
+
+      function updateStatsAfterMood() {
+        const stats = getStats()
+        stats.reflections += 1
+        store.set(STATS_KEY, stats)
+        updateStatsUi()
+        maybeAwardBadges()
+      }
+
+      function fireConfettiAt(lon, lat) {
+        if (!view) return
+        const screenPoint = view.toScreen({ longitude: lon, latitude: lat })
+        if (!screenPoint) return
+        confetti({
+          particleCount: 120,
+          spread: 65,
+          scalar: 0.9,
+          ticks: 180,
+          startVelocity: 42,
+          origin: {
+            x: screenPoint.x / view.width,
+            y: screenPoint.y / view.height
+          }
+        })
+      }
+
+      function buildPopupShell({
+        title,
+        subtitle,
+        helper,
+        contentHtml,
+        kicker = 'GeoExplorer',
+        difficultyKey = difficultyForIndex(currentDifficultyIndex).key
+      }) {
+        const wrapper = document.createElement('div')
+        const difficulty = difficultyForIndex(currentDifficultyIndex)
+        wrapper.className = 'gx-popup-root'
+        wrapper.style.cssText = [
+          "font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          'color: #0f172a',
+          'width: min(100%, 420px)',
+          'max-width: 420px',
+          'min-width: 360px',
+          'display: grid',
+          'gap: 14px',
+          'padding: 2px 2px 4px'
+        ].join(';')
+        wrapper.innerHTML = `
+          <style>
+            .gx-popup-root * { box-sizing: border-box; }
+            .gx-popup-root .gx-top-card {
+              display: grid;
+              gap: 10px;
+              padding: 14px;
+              border-radius: 20px;
+              background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(243,246,255,0.96));
+              border: 1px solid rgba(99,102,241,0.16);
+              box-shadow: 0 14px 32px rgba(15,23,42,0.08);
+            }
+            .gx-popup-root .gx-kicker {
+              font-size: 11px;
+              font-weight: 800;
+              text-transform: uppercase;
+              letter-spacing: 0.08em;
+              color: #4f46e5;
+            }
+            .gx-popup-root .gx-title-row {
+              display: flex;
+              align-items: flex-start;
+              justify-content: space-between;
+              gap: 12px;
+            }
+            .gx-popup-root .gx-title {
+              font-size: 19px;
+              line-height: 1.2;
+              font-weight: 900;
+              color: #0f172a;
+            }
+            .gx-popup-root .gx-subtitle {
+              font-size: 13px;
+              line-height: 1.45;
+              color: #475569;
+            }
+            .gx-popup-root .gx-difficulty {
+              flex: 0 0 auto;
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              padding: 8px 12px;
+              border-radius: 999px;
+              background: #eef2ff;
+              color: #3730a3;
+              font-size: 12px;
+              font-weight: 900;
+              white-space: nowrap;
+            }
+            .gx-popup-root .gx-helper {
+              padding: 11px 12px;
+              border-radius: 14px;
+              background: rgba(79,70,229,0.08);
+              color: #4338ca;
+              font-size: 12px;
+              line-height: 1.45;
+              font-weight: 700;
+            }
+            .gx-popup-root .gx-section-card {
+              display: grid;
+              gap: 10px;
+              padding: 14px;
+              border-radius: 18px;
+              border: 1px solid rgba(148,163,184,0.18);
+              background: rgba(255,255,255,0.97);
+              box-shadow: 0 10px 24px rgba(15,23,42,0.05);
+            }
+            .gx-popup-root .gx-section-head {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 8px;
+            }
+            .gx-popup-root .gx-soft-pill {
+              display: inline-flex;
+              align-items: center;
+              padding: 6px 10px;
+              border-radius: 999px;
+              background: #f1f5f9;
+              color: #475569;
+              font-size: 11px;
+              font-weight: 800;
+            }
+            .gx-popup-root .gx-question {
+              font-size: 20px;
+              line-height: 1.3;
+              font-weight: 900;
+              color: #111827;
+            }
+            .gx-popup-root .gx-option-list {
+              display: grid;
+              gap: 10px;
+            }
+            .gx-popup-root .gx-feedback {
+              display: none;
+              gap: 8px;
+              padding: 12px 13px;
+              border-radius: 16px;
+              border: 1px solid rgba(148,163,184,0.18);
+              background: #ffffff;
+            }
+            .gx-popup-root .gx-feedback-title {
+              font-size: 14px;
+              font-weight: 900;
+              line-height: 1.4;
+            }
+            .gx-popup-root .gx-feedback-copy {
+              font-size: 13px;
+              line-height: 1.5;
+              color: #475569;
+            }
+            .gx-popup-root .gx-actions {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 10px;
+            }
+            .gx-popup-root .gx-body-copy {
+              font-size: 13px;
+              line-height: 1.5;
+              color: #475569;
+            }
+            .gx-popup-root .gx-status {
+              font-size: 13px;
+              line-height: 1.45;
+              color: #475569;
+              min-height: 18px;
+            }
+            .gx-popup-root .gx-textarea {
+              width: 100%;
+              min-height: 92px;
+              resize: vertical;
+              padding: 12px 13px;
+              border-radius: 14px;
+              border: 1px solid rgba(148,163,184,0.28);
+              background: #ffffff;
+              font: inherit;
+              color: #0f172a;
+            }
+            .gx-popup-root .gx-textarea:focus {
+              outline: 2px solid rgba(79,70,229,0.18);
+              border-color: rgba(79,70,229,0.35);
+            }
+            .gx-popup-root .gx-hints {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 8px;
+            }
+            .gx-popup-root .gx-divider {
+              height: 1px;
+              background: rgba(148,163,184,0.18);
+            }
+            @media (max-width: 560px) {
+              .gx-popup-root { min-width: 0 !important; width: 100% !important; }
+              .gx-popup-root .gx-title { font-size: 17px; }
+              .gx-popup-root .gx-question { font-size: 18px; }
+            }
+          </style>
+          <div class="gx-top-card">
+            <div class="gx-kicker">${escapeHtml(kicker)}</div>
+            <div class="gx-title-row">
+              <div style="min-width: 0; display: grid; gap: 6px;">
+                <div class="gx-title">${escapeHtml(title)}</div>
+                ${
+                  subtitle
+                    ? `<div class="gx-subtitle">${escapeHtml(subtitle)}</div>`
+                    : ''
+                }
+              </div>
+              <div class="gx-difficulty">${escapeHtml(
+                difficulty.name
+              )} pace</div>
+            </div>
+            ${
+              helper ? `<div class="gx-helper">${escapeHtml(helper)}</div>` : ''
+            }
+          </div>
+          ${contentHtml}
+        `
+        return wrapper
+      }
+
+      function buildMoodComposer({ lon, lat, placeTitle, statusOnly = false }) {
+        const wrapper = document.createElement('div')
+        wrapper.innerHTML = `
+          <div class="gx-divider"></div>
+          <div class="gx-section-card">
+            <div style="display:grid; gap:6px;">
+              <div style="font-size:15px; font-weight:900; color:#0f172a;">${
+                statusOnly ? 'Quick mood check' : 'Add a quick reaction'
+              }</div>
+              <div class="gx-body-copy">Save how this place feels so the experience can stay personal and responsive.</div>
+            </div>
+            <textarea class="gx-textarea" placeholder="Type a short reaction, review, or vibe check"></textarea>
+            <div class="gx-actions">
+              <button type="button" class="gx-analyze-btn">Save reaction</button>
+            </div>
+            <div class="gx-status"></div>
+            <div class="gx-hints"></div>
+          </div>
+        `
+
+        const textarea = wrapper.querySelector('textarea')
+        const button = wrapper.querySelector('button')
+        const status = wrapper.querySelector('.gx-status')
+        const hintRow = wrapper.querySelector('.gx-hints')
+        button.style.cssText = [
+          'border: 0',
+          'cursor: pointer',
+          'padding: 11px 14px',
+          'border-radius: 14px',
+          'background: linear-gradient(135deg, #4f46e5, #4338ca)',
+          'color: #ffffff',
+          'font: inherit',
+          'font-weight: 800',
+          'box-shadow: 0 10px 18px rgba(79,70,229,0.18)'
+        ].join(';')
+
+        button.addEventListener(
+          'click',
+          withLoading(async () => {
+            const text = textarea.value.trim()
+            if (!text) {
+              status.textContent = 'Add a quick reaction first.'
+              return
+            }
+
+            status.textContent = 'Analyzing your reaction...'
+            const sentiment = await analyzeSentiment(text)
+            const style = getSentimentStyle(sentiment.label)
+            const signalText = `You said: "${
+              text.length > 100 ? `${text.slice(0, 100)}…` : text
+            }"`
+            const entry = {
+              lon,
+              lat,
+              placeTitle,
+              text,
+              label: sentiment.label,
+              confidence: sentiment.confidence,
+              scores: sentiment.scores,
+              sentences: sentiment.sentences || [],
+              routeKey: sentiment.routeKey,
+              routeChip: sentiment.routeChip,
+              decision: sentiment.decision,
+              response: sentiment.response,
+              signal: signalText,
+              apiVersion: sentiment.apiVersion,
+              timestamp: Date.now()
+            }
+            saveSentiment(entry)
+            store.set(LAST_SENTIMENT_KEY, entry)
+            addMoodMarker(entry)
+            updateStatsAfterMood()
+            renderSentimentRoute(entry)
+            renderBadges()
+            status.textContent = `Saved as ${sentiment.label}.`
+            hintRow.innerHTML = `
+            <span style="display:inline-flex;align-items:center;gap:8px;padding:8px 11px;border-radius:999px;font-size:12px;font-weight:900;background:${
+              style.className === 'positive'
+                ? 'rgba(22,163,74,0.12)'
+                : style.className === 'negative'
+                ? 'rgba(220,38,38,0.12)'
+                : style.className === 'mixed'
+                ? 'rgba(180,83,9,0.12)'
+                : 'rgba(100,116,139,0.12)'
+            };color:${
+              style.className === 'positive'
+                ? '#166534'
+                : style.className === 'negative'
+                ? '#991b1b'
+                : style.className === 'mixed'
+                ? '#92400e'
+                : '#475569'
+            };">${style.emoji} ${escapeHtml(sentiment.label)}</span>
+            <span style="display:inline-flex;align-items:center;padding:8px 11px;border-radius:999px;font-size:12px;font-weight:800;background:#eef2ff;color:#3730a3;">${escapeHtml(
+              sentiment.routeChip
+            )}</span>
+          `
+            textarea.value = ''
+            toast('Reaction saved', `${placeTitle} now has a saved reaction.`)
+          })
+        )
+
+        if (statusOnly) {
+          const heading = wrapper.querySelector("div[style*='font-size:15px']")
+          if (heading) heading.textContent = 'Quick mood check'
+        }
+
+        return wrapper
+      }
+
+      function buildQuizPopup({ placeTitle, lat, lon, question, difficulty }) {
+        const subtitle =
+          'Use the map and nearby context to make your best guess.'
+        const helper = `Current level: ${difficulty.name}. ${question.difficultyFlavor}`
+
+        const wrapper = buildPopupShell({
+          title: placeTitle,
+          subtitle,
+          helper,
+          kicker: 'Place challenge',
+          difficultyKey: difficulty.key,
+          contentHtml: `
+            <div class="gx-section-card">
+              <div class="gx-section-head">
+                <span class="gx-soft-pill">${escapeHtml(
+                  question.difficultyFlavor || 'Adaptive question'
+                )}</span>
+                <span class="gx-soft-pill">${escapeHtml(
+                  difficulty.name
+                )} level</span>
+              </div>
+              <div class="gx-question">${escapeHtml(question.question)}</div>
+              <div class="gx-option-list"></div>
+            </div>
+            <div class="gx-feedback">
+              <div class="gx-feedback-title"></div>
+              <div class="gx-feedback-copy"></div>
+            </div>
+            <div class="gx-actions">
+              <button type="button" data-next style="display:none;border:0;cursor:pointer;padding:11px 14px;border-radius:14px;background:#e2e8f0;color:#334155;font:inherit;font-weight:800;">Another question</button>
+            </div>
+          `
+        })
+
+        const optionList = wrapper.querySelector('.gx-option-list')
+        const feedbackCard = wrapper.querySelector('.gx-feedback')
+        const feedbackTitle = wrapper.querySelector('.gx-feedback-title')
+        const feedbackCopy = wrapper.querySelector('.gx-feedback-copy')
+        const nextBtn = wrapper.querySelector('[data-next]')
+        let answered = false
+        const startedAt = performance.now()
+
+        lastRound = {
+          startedAt,
+          answered: false,
+          placeTitle,
+          lat,
+          lon,
+          difficultyIndex: currentDifficultyIndex
+        }
+
+        question.options.forEach((option, index) => {
+          const button = document.createElement('button')
+          button.type = 'button'
+          button.style.cssText = [
+            'width: 100%',
+            'display: flex',
+            'align-items: flex-start',
+            'gap: 12px',
+            'text-align: left',
+            'padding: 14px 14px',
+            'border-radius: 16px',
+            'border: 1px solid rgba(148,163,184,0.22)',
+            'background: #ffffff',
+            'cursor: pointer',
+            'font: inherit',
+            'color: #0f172a',
+            'box-shadow: 0 4px 10px rgba(15,23,42,0.03)'
+          ].join(';')
+          button.innerHTML = `<span style="display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:30px;height:30px;border-radius:999px;background:#eef2ff;color:#3730a3;font-size:12px;font-weight:900;">${String.fromCharCode(
+            65 + index
+          )}</span><span style="display:block;font-size:14px;line-height:1.45;font-weight:700;">${escapeHtml(
+            option
+          )}</span>`
+          button.addEventListener(
+            'click',
+            withLoading(async () => {
+              if (answered) return
+              answered = true
+              lastRound.answered = true
+
+              const elapsedSeconds = (performance.now() - startedAt) / 1000
+              const isCorrect = index === question.answerIndex
+
+              ;[...optionList.querySelectorAll('button')].forEach(
+                (optionButton, optionIndex) => {
+                  optionButton.disabled = true
+                  optionButton.style.cursor = 'default'
+                  optionButton.style.opacity = '0.98'
+                  if (optionIndex === question.answerIndex) {
+                    optionButton.style.borderColor = 'rgba(22,163,74,0.35)'
+                    optionButton.style.background =
+                      'linear-gradient(180deg, #f0fdf4, #ffffff)'
+                    optionButton.style.boxShadow =
+                      '0 8px 18px rgba(22,163,74,0.08)'
+                  }
+                  if (optionIndex === index && !isCorrect) {
+                    optionButton.style.borderColor = 'rgba(220,38,38,0.35)'
+                    optionButton.style.background =
+                      'linear-gradient(180deg, #fef2f2, #ffffff)'
+                    optionButton.style.boxShadow =
+                      '0 8px 18px rgba(220,38,38,0.08)'
+                  }
+                }
+              )
+
+              const stats = updateStatsAfterQuiz({
+                correct: isCorrect,
+                seconds: elapsedSeconds,
+                abandoned: false
+              })
+              const previousDifficultyName = difficultyForIndex(
+                currentDifficultyIndex
+              ).name
+              const adaptiveResult = await trainAdaptiveModel({
+                correct: isCorrect,
+                seconds: elapsedSeconds,
+                difficultyIndex: currentDifficultyIndex,
+                streak: stats.streak
+              })
+              currentDifficultyIndex = adaptiveResult.nextTarget
+              const nextDifficultyName = difficultyForIndex(
+                adaptiveResult.nextTarget
+              ).name
+              renderModelProbabilities(
+                adaptiveResult.probabilities,
+                isCorrect
+                  ? 'Nice pace on that round.'
+                  : 'Adjusting after that round.'
+              )
+              renderDifficultyDecision({
+                key: adaptiveResult.routeKey,
+                chip: adaptiveResult.routeChip,
+                signal: `${
+                  isCorrect ? 'Correct' : 'Incorrect'
+                } in ${elapsedSeconds.toFixed(
+                  1
+                )}s at ${previousDifficultyName} level.`,
+                decision: adaptiveResult.decisionText,
+                response: `Your next challenge will be tuned to ${nextDifficultyName}.`
+              })
+              pushRoundLog({
+                round: getStats().attempts,
+                label: `Next: ${nextDifficultyName} · ${
+                  isCorrect ? 'correct' : 'incorrect'
+                } · ${elapsedSeconds.toFixed(1)}s`
+              })
+              updateStatsUi()
+
+              feedbackCard.style.display = 'grid'
+
+              if (isCorrect) {
+                feedbackCard.style.borderColor = 'rgba(22,163,74,0.22)'
+                feedbackCard.style.background =
+                  'linear-gradient(180deg, rgba(240,253,244,0.98), rgba(255,255,255,0.98))'
+                feedbackTitle.innerHTML = `<span style="display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;background:rgba(22,163,74,0.12);color:#166534;font-size:12px;font-weight:900;margin-right:8px;">Correct</span> Nice call in ${elapsedSeconds.toFixed(
+                  1
+                )}s.`
+                feedbackCopy.textContent =
+                  question.explanation ||
+                  'That answer matched the strongest map-based clue.'
+                fireConfettiAt(lon, lat)
+              } else {
+                feedbackCard.style.borderColor = 'rgba(220,38,38,0.22)'
+                feedbackCard.style.background =
+                  'linear-gradient(180deg, rgba(254,242,242,0.98), rgba(255,255,255,0.98))'
+                feedbackTitle.innerHTML = `<span style="display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;background:rgba(220,38,38,0.12);color:#991b1b;font-size:12px;font-weight:900;margin-right:8px;">Not quite</span> The right answer was ${escapeHtml(
+                  question.options[question.answerIndex]
+                )}.`
+                feedbackCopy.textContent =
+                  question.explanation ||
+                  'The strongest clue pointed to a different option.'
+              }
+              nextBtn.style.display = 'inline-flex'
+              nextBtn.onclick = withLoading(async () => {
+                const nextQuestion = await openQuestionFlow(lat, lon)
+                view.popup.content = nextQuestion
+              })
+
+              maybeAwardBadges()
+              renderBadges()
+
+              if (mode !== 'quiz') {
+                wrapper.appendChild(buildMoodComposer({ lon, lat, placeTitle }))
+              }
+            })
+          )
+          optionList.appendChild(button)
+        })
+
+        return wrapper
+      }
+
+      function buildMoodOnlyPopup({ placeTitle, lat, lon }) {
+        const wrapper = buildPopupShell({
+          title: placeTitle,
+          subtitle: 'Save a quick vibe check for your recap and mood history.',
+          helper: 'Add a quick reaction and save how this place feels.',
+          kicker: 'Mood check-in',
+          contentHtml: ''
+        })
+        wrapper.appendChild(
+          buildMoodComposer({ lon, lat, placeTitle, statusOnly: true })
+        )
+        return wrapper
+      }
+
+      async function openQuestionFlow(lat, lon) {
+        const difficulty = difficultyForIndex(currentDifficultyIndex)
+        const [reverse, nearby] = await Promise.all([
+          reverseGeocode(lat, lon).catch(() => null),
+          nearbyCandidates(lat, lon).catch(() => [])
+        ])
+        const placeTitle = getPlaceTitle(reverse, nearby, lat, lon)
+        const reverseAttrs = reverse?.attributes || {}
+        const reverseSummary = [
+          reverse?.address ||
+            reverseAttrs.LongLabel ||
+            reverseAttrs.Match_addr ||
+            '',
+          reverseAttrs.Neighborhood
+            ? `Neighborhood: ${reverseAttrs.Neighborhood}`
+            : '',
+          reverseAttrs.City ? `City: ${reverseAttrs.City}` : '',
+          reverseAttrs.Region ? `Region: ${reverseAttrs.Region}` : '',
+          reverseAttrs.Addr_type
+            ? `Address type: ${reverseAttrs.Addr_type}`
+            : ''
+        ]
+          .filter(Boolean)
+          .join(' | ')
+
+        const question = await generateQuizQuestion({
+          placeTitle,
+          lat,
+          lon,
+          nearbyNames: nearby,
+          difficulty,
+          reverseSummary
+        })
+        return buildQuizPopup({ placeTitle, lat, lon, question, difficulty })
+      }
+
+      async function openMoodFlow(lat, lon) {
+        const [reverse, nearby] = await Promise.all([
+          reverseGeocode(lat, lon).catch(() => null),
+          nearbyCandidates(lat, lon).catch(() => [])
+        ])
+        const placeTitle = getPlaceTitle(reverse, nearby, lat, lon)
+        return buildMoodOnlyPopup({ placeTitle, lat, lon })
+      }
+
+      function handleAbandon() {
+        if (!lastRound || lastRound.answered) return
+        const elapsedSeconds = (performance.now() - lastRound.startedAt) / 1000
+        updateStatsAfterQuiz({
+          correct: false,
+          seconds: elapsedSeconds,
+          abandoned: true
+        })
+        lastRound = null
+      }
+
+      async function openPopupForPoint(mapPoint) {
+        const lat = mapPoint.latitude
+        const lon = mapPoint.longitude
+        placeMarker(lon, lat)
+        const content =
+          mode === 'mood'
+            ? await openMoodFlow(lat, lon)
+            : await openQuestionFlow(lat, lon)
+        view.popup.open({
+          title: 'GeoExplorer',
+          location: mapPoint,
+          content
+        })
+      }
+
+      async function resetAdaptiveModel() {
+        try {
+          await tf.io.removeModel(MODEL_STORAGE_KEY)
+        } catch {
+          // Ignore first-run remove errors.
+        }
+        adaptiveModel = await createAdaptiveModel()
+        const { xs, ys } = seedTrainingData()
+        await adaptiveModel.fit(xs, ys, {
+          epochs: 100,
+          batchSize: 8,
+          shuffle: true,
+          verbose: 0
+        })
+        xs.dispose()
+        ys.dispose()
+        await adaptiveModel.save(MODEL_STORAGE_KEY)
+      }
+
+      async function resetDemo() {
+        store.set(STATS_KEY, structuredClone(DEFAULT_STATS))
+        store.set(SENTIMENT_KEY, [])
+        store.set(BADGES_KEY, [])
+        store.set(UNLOCKS_KEY, { ids: [BASEMAP_UNLOCKS[0].id] })
+        store.set(ACTIVE_BASEMAP_KEY, BASEMAP_UNLOCKS[0].id)
+        store.remove(QUESTION_CACHE_KEY)
+        store.remove(ROUND_LOG_KEY)
+        store.remove(LAST_SENTIMENT_KEY)
+        currentDifficultyIndex = 0
+        renderRecapCard()
+        clickLayer?.removeAll()
+        moodLayer?.removeAll()
+        if (map) map.basemap = BASEMAP_UNLOCKS[0].id
+        await resetAdaptiveModel()
+        renderModelProbabilities([0.7, 0.2, 0.1], 'Fresh start.')
+        updateAllSidebarUi()
+        view?.popup?.close()
+        toast(
+          'Fresh start',
+          'Your progress, reactions, and unlocked styles have been reset.'
+        )
+      }
+
+      el.modeSwitch?.addEventListener('click', event => {
+        const button = event.target.closest('button[data-mode]')
+        if (!button) return
+        mode = button.dataset.mode
+        localStorage.setItem(APP_MODE_KEY, mode)
+        renderMode()
+        const label = button.textContent.trim()
+        toast('Experience updated', `${label} is now active.`)
+      })
+
+      el.recapBtn.addEventListener(
+        'click',
+        withLoading(async () => {
+          const recap = await generateRecap()
+          renderRecapCard(recap)
+          toast('Recap ready', recap.title || 'Your session recap is ready.')
+        })
+      )
+
+      el.resetBtn.addEventListener(
+        'click',
+        withLoading(async () => {
+          await resetDemo()
+        })
+      )
+
+      renderMode()
+      updateAllSidebarUi()
+      renderRecapCard()
+      renderDifficultyDecision()
+
+      await initAdaptiveModel()
+      renderModelProbabilities(
+        predictProbabilities([1, 0.25, 0, 0]),
+        'Ready to adapt.'
+      )
+
+      await el.mapEl.viewOnReady()
+      view = el.mapEl.view
+      map = el.mapEl.map
+      map.basemap = getActiveBasemap()
+      clickLayer = new GraphicsLayer({ id: 'geoexplorer-click-layer' })
+      moodLayer = new GraphicsLayer({ id: 'geoexplorer-mood-layer' })
+      map.addMany([clickLayer, moodLayer])
+
+      getSentiments().forEach(addMoodMarker)
+
+      view.popup.dockEnabled = true
+      view.popup.dockOptions = {
+        position: 'bottom-right',
+        breakpoint: false,
+        buttonEnabled: false
+      }
+      view.popup.visibleElements = { actionBar: false }
+
+      reactiveUtils.watch(
+        () => view.popup.visible,
+        visible => {
+          if (!visible) handleAbandon()
+        }
+      )
+
+      view.on('click', async event => {
+        if (openingPopup || !event.mapPoint) return
+        const hit = await view.hitTest(event)
+        const clickedMoodMarker = hit?.results?.some(
+          item => item?.graphic?.layer?.id === moodLayer.id
+        )
+        if (clickedMoodMarker) return
+
+        openingPopup = true
+        try {
+          await withLoading(openPopupForPoint)(event.mapPoint)
+        } catch (error) {
+          console.error(error)
+          view.popup.open({
+            title: 'GeoExplorer',
+            location: event.mapPoint,
+            content: `<div style="font: 14px/1.4 Inter, system-ui, sans-serif; color:#334155;">${escapeHtml(
+              error.message ||
+                'Something went wrong. Check your saved keys and try again.'
+            )}</div>`
+          })
+        } finally {
+          openingPopup = false
+        }
+      })
+
+      updateAllSidebarUi()
+      toast(
+        'GeoExplorer ready',
+        'You are starting at Mason Square in Arlington. Click the map to try a challenge or save a mood check-in.'
+      )
+    </script>
+  </body>
+</html>

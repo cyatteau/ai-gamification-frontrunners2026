@@ -66,15 +66,6 @@ Some demos in this repo are safe sharing versions for presentation and reference
 
 If you want to run the local-server demo, create your own environment file and add your own credentials.
 
-Example:
-
-```bash
-cd demos/demo-1-dynamic-fact-finder
-npm install
-cp .env.example .env
-npm start
-```
-
 ## Notes
 
 - This repo is intended for learning, presentation sharing, and experimentation.

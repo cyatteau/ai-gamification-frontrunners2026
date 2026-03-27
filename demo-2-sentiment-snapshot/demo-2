@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sentiment Snapshot</title>
+    <style>
+      :root {
+        --bg: #f5f7fb;
+        --surface: rgba(255, 255, 255, 0.82);
+        --surface-strong: #ffffff;
+        --surface-soft: #f8fafc;
+        --text: #0f172a;
+        --muted: #475569;
+        --border: #dbe4f0;
+        --accent: #2563eb;
+        --accent-soft: #dbeafe;
+        --positive: #15803d;
+        --positive-soft: #dcfce7;
+        --mixed: #a16207;
+        --mixed-soft: #fef3c7;
+        --negative: #b91c1c;
+        --negative-soft: #fee2e2;
+        --neutral: #475569;
+        --neutral-soft: #e2e8f0;
+        --shadow: 0 18px 44px rgba(15, 23, 42, 0.08);
+        --radius-xl: 26px;
+        --radius-lg: 20px;
+        --radius-md: 16px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system,
+          BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        color: var(--text);
+        background: radial-gradient(
+            circle at top left,
+            rgba(37, 99, 235, 0.12),
+            transparent 28%
+          ),
+          linear-gradient(180deg, #f8fbff 0%, #f4f7fb 100%);
+        min-height: 100vh;
+      }
+
+      .shell {
+        max-width: 1040px;
+        margin: 0 auto;
+        padding: 28px;
+      }
+
+      .hero {
+        margin-bottom: 20px;
+      }
+
+      .eyebrow {
+        margin: 0 0 10px;
+        font-size: 0.8rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--accent);
+        font-weight: 800;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(2rem, 3vw, 2.8rem);
+        line-height: 1.02;
+      }
+
+      .lede {
+        margin: 12px 0 0;
+        max-width: 720px;
+        color: var(--muted);
+        font-size: 1rem;
+        line-height: 1.55;
+      }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(10px);
+      }
+
+      .composer {
+        padding: 20px;
+        margin-bottom: 16px;
+      }
+
+      .field-label {
+        display: block;
+        font-weight: 800;
+        margin-bottom: 8px;
+        font-size: 0.96rem;
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 136px;
+        padding: 15px 16px;
+        border-radius: 18px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.96);
+        color: var(--text);
+        font: inherit;
+        resize: vertical;
+      }
+
+      textarea:focus {
+        outline: none;
+        border-color: #8ba3ff;
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+      }
+
+      .button-row,
+      .stats-row,
+      .sample-row,
+      .highlights {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      button {
+        appearance: none;
+        border: none;
+      }
+
+      .chip-btn,
+      .primary,
+      .ghost {
+        border-radius: 999px;
+        padding: 11px 15px;
+        font-size: 0.95rem;
+        font-weight: 800;
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.15s ease,
+          opacity 0.15s ease;
+      }
+
+      .chip-btn:hover,
+      .primary:hover,
+      .ghost:hover {
+        transform: translateY(-1px);
+      }
+
+      .chip-btn {
+        background: #e8eef8;
+        color: #0f172a;
+      }
+
+      .primary {
+        background: var(--accent);
+        color: white;
+        box-shadow: 0 12px 26px rgba(37, 99, 235, 0.24);
+      }
+
+      .ghost {
+        background: #fff;
+        color: var(--muted);
+        border: 1px solid var(--border);
+      }
+
+      .chip-btn:disabled,
+      .primary:disabled,
+      .ghost:disabled {
+        opacity: 0.64;
+        cursor: default;
+        transform: none;
+      }
+
+      .composer-footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        margin-top: 14px;
+        flex-wrap: wrap;
+      }
+
+      .error {
+        color: var(--negative);
+        font-size: 0.93rem;
+        min-height: 1.2em;
+      }
+
+      .stats {
+        margin-bottom: 16px;
+      }
+
+      .stat-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 13px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.72);
+        border-radius: 999px;
+        font-size: 0.92rem;
+        color: var(--muted);
+      }
+
+      .stat-chip strong {
+        color: var(--text);
+      }
+
+      .result-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.9fr);
+        gap: 16px;
+      }
+
+      .result-card {
+        padding: 20px;
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.95) 0%,
+          rgba(248, 250, 252, 0.92) 100%
+        );
+      }
+
+      .summary-box {
+        padding: 18px;
+        border-radius: 22px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.88);
+      }
+
+      .summary-box.positive {
+        background: linear-gradient(180deg, #f7fff9 0%, #effdf4 100%);
+        border-color: #c8efd5;
+      }
+
+      .summary-box.mixed {
+        background: linear-gradient(180deg, #fffdf7 0%, #fffaeb 100%);
+        border-color: #f3dfab;
+      }
+
+      .summary-box.negative {
+        background: linear-gradient(180deg, #fff8f8 0%, #fff0f0 100%);
+        border-color: #f4c7c7;
+      }
+
+      .summary-box.neutral {
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 7px 11px;
+        border-radius: 999px;
+        font-size: 0.83rem;
+        font-weight: 800;
+        margin-bottom: 12px;
+      }
+
+      .badge.positive {
+        color: var(--positive);
+        background: rgba(21, 128, 61, 0.1);
+      }
+
+      .badge.mixed {
+        color: var(--mixed);
+        background: rgba(161, 98, 7, 0.1);
+      }
+
+      .badge.negative {
+        color: var(--negative);
+        background: rgba(185, 28, 28, 0.1);
+      }
+
+      .badge.neutral {
+        color: var(--neutral);
+        background: rgba(71, 85, 105, 0.1);
+      }
+
+      .summary-title {
+        margin: 0 0 10px;
+        font-size: clamp(1.35rem, 2vw, 1.8rem);
+        line-height: 1.15;
+      }
+
+      .summary-text {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.6;
+        font-size: 0.99rem;
+      }
+
+      .section-title {
+        margin: 0 0 14px;
+        font-size: 1.05rem;
+      }
+
+      .mini-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .tone-row {
+        display: grid;
+        grid-template-columns: 74px minmax(0, 1fr) 52px;
+        gap: 10px;
+        align-items: center;
+        font-size: 0.92rem;
+      }
+
+      .tone-row span:first-child {
+        color: var(--muted);
+        font-weight: 700;
+      }
+
+      .track {
+        height: 10px;
+        border-radius: 999px;
+        background: #e2e8f0;
+        overflow: hidden;
+      }
+
+      .fill {
+        height: 100%;
+        width: 0%;
+        border-radius: inherit;
+        transition: width 180ms ease;
+        background: linear-gradient(90deg, var(--accent), #38bdf8);
+      }
+
+      .highlight-pill {
+        padding: 9px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.82);
+        color: var(--muted);
+        font-size: 0.9rem;
+        max-width: 100%;
+      }
+
+      .empty-text {
+        color: var(--muted);
+        font-size: 0.94rem;
+      }
+
+      @media (max-width: 900px) {
+        .result-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 760px) {
+        .shell {
+          padding: 18px;
+        }
+
+        .composer-footer {
+          align-items: stretch;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="hero">
+        <p class="eyebrow">Mini Demo 2 · Sentiment Analysis</p>
+        <h1>Sentiment Snapshot</h1>
+        <p class="lede">
+          Share a quick reflection and get a tone-aware response that feels a little
+          more thoughtful than the same generic message every time.
+        </p>
+      </header>
+
+      <section class="card composer">
+        <label class="field-label" for="input">How did that round feel?</label>
+        <textarea
+          id="input"
+          placeholder="Example: I was frustrated at first, but I made it through."
+        ></textarea>
+
+        <div class="composer-footer">
+          <div class="sample-row">
+            <button class="chip-btn" data-sample="positive" type="button">Positive sample</button>
+            <button class="chip-btn" data-sample="mixed" type="button">Mixed sample</button>
+            <button class="chip-btn" data-sample="negative" type="button">Frustrated sample</button>
+          </div>
+          <div class="button-row">
+            <button id="clear" class="ghost" type="button">Clear</button>
+            <button id="analyze" class="primary" type="button">Analyze reflection</button>
+          </div>
+        </div>
+
+        <div id="error" class="error"></div>
+      </section>
+
+      <section class="stats">
+        <div class="stats-row">
+          <div class="stat-chip"><span>Sentiment</span><strong id="overallStat">Waiting…</strong></div>
+          <div class="stat-chip"><span>Response tone</span><strong id="feedbackModeStat">Balanced</strong></div>
+          <div class="stat-chip"><span>Top read</span><strong id="topConfidenceStat">0%</strong></div>
+        </div>
+      </section>
+
+      <section class="result-grid">
+        <div class="card result-card">
+          <div id="routeBox" class="summary-box neutral">
+            <div id="routeChip" class="badge neutral">Waiting</div>
+            <h2 id="routeTitle" class="summary-title">Your reflection will be summarized here.</h2>
+            <p id="routeBody" class="summary-text">
+              Once you analyze a reflection, this area will give you a simple,
+              user-facing read on the overall tone and the kind of response that fits it.
+            </p>
+          </div>
+        </div>
+
+        <aside class="card result-card">
+          <div class="mini-list">
+            <div>
+              <h3 class="section-title">Tone mix</h3>
+              <div class="mini-list">
+                <div class="tone-row">
+                  <span>Positive</span>
+                  <div class="track"><div class="fill" id="scorePositive"></div></div>
+                  <strong id="scorePositiveLabel">0%</strong>
+                </div>
+                <div class="tone-row">
+                  <span>Neutral</span>
+                  <div class="track"><div class="fill" id="scoreNeutral"></div></div>
+                  <strong id="scoreNeutralLabel">0%</strong>
+                </div>
+                <div class="tone-row">
+                  <span>Negative</span>
+                  <div class="track"><div class="fill" id="scoreNegative"></div></div>
+                  <strong id="scoreNegativeLabel">0%</strong>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 class="section-title">Highlights</h3>
+              <div id="sentences" class="highlights">
+                <div class="empty-text">Analyze one reflection to see the standout lines.</div>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </section>
+    </div>
+
+    <script>
+      const CONFIG = {
+        LANGUAGE_ENDPOINT:
+          'yourEndpoint',
+        LANGUAGE_KEY: 'yourKey'
+      }
+
+      const input = document.getElementById('input')
+      const analyzeBtn = document.getElementById('analyze')
+      const clearBtn = document.getElementById('clear')
+      const errorEl = document.getElementById('error')
+
+      const overallStat = document.getElementById('overallStat')
+      const feedbackModeStat = document.getElementById('feedbackModeStat')
+      const topConfidenceStat = document.getElementById('topConfidenceStat')
+
+      const routeBox = document.getElementById('routeBox')
+      const routeChip = document.getElementById('routeChip')
+      const routeTitle = document.getElementById('routeTitle')
+      const routeBody = document.getElementById('routeBody')
+
+      const scorePositive = document.getElementById('scorePositive')
+      const scoreNeutral = document.getElementById('scoreNeutral')
+      const scoreNegative = document.getElementById('scoreNegative')
+      const scorePositiveLabel = document.getElementById('scorePositiveLabel')
+      const scoreNeutralLabel = document.getElementById('scoreNeutralLabel')
+      const scoreNegativeLabel = document.getElementById('scoreNegativeLabel')
+
+      const sentences = document.getElementById('sentences')
+
+      const samples = {
+        positive:
+          'I really liked this. It was smooth, helpful, and way better than I expected.',
+        mixed:
+          'I was frustrated at first. However, once I figured it out I felt pretty good about it.',
+        negative:
+          'This was rough. I got stuck, felt annoyed, and I do not want to do that again.'
+      }
+
+      function validateConfig(requiredKeys) {
+        const missing = requiredKeys.filter(
+          key => !CONFIG[key] || CONFIG[key].includes('PASTE_')
+        )
+        if (missing.length) {
+          throw new Error(`Missing config: ${missing.join(', ')}`)
+        }
+      }
+
+      document.querySelectorAll('[data-sample]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          input.value = samples[btn.dataset.sample]
+        })
+      })
+
+      clearBtn.addEventListener('click', () => {
+        input.value = ''
+        errorEl.textContent = ''
+      })
+
+      analyzeBtn.addEventListener('click', analyze)
+
+      function chooseRoute(doc) {
+        const sentiment = doc.sentiment
+        const scores = doc.confidenceScores || {}
+        const positive = scores.positive ?? 0
+        const negative = scores.negative ?? 0
+
+        if (sentiment === 'positive' && positive >= 0.75) {
+          return {
+            key: 'positive',
+            chip: 'Positive',
+            title: 'A confident reflection',
+            feedbackMode: 'Celebratory',
+            body:
+              'This reads as clearly positive. A good follow-up here would reinforce progress, keep the tone upbeat, and make the next step feel rewarding.'
+          }
+        }
+
+        if (sentiment === 'negative' && negative >= 0.55) {
+          return {
+            key: 'negative',
+            chip: 'Negative',
+            title: 'A frustrated reflection',
+            feedbackMode: 'Supportive',
+            body:
+              'This reads as more negative or drained. A better follow-up here would lower pressure, acknowledge the friction, and make re-entry feel easier.'
+          }
+        }
+
+        if (sentiment === 'mixed') {
+          return {
+            key: 'mixed',
+            chip: 'Mixed',
+            title: 'A mixed reflection',
+            feedbackMode: 'Encouraging',
+            body:
+              'This reflection has both progress and friction. The best response would keep momentum visible while still making room for the rough patch.'
+          }
+        }
+
+        return {
+          key: 'neutral',
+          chip: 'Neutral',
+          title: 'A steady reflection',
+          feedbackMode: 'Balanced',
+          body:
+            'This reads as fairly even. A matching response would stay helpful and calm without overreacting in either direction.'
+        }
+      }
+
+      async function callAzureSentiment(text) {
+        validateConfig(['LANGUAGE_ENDPOINT', 'LANGUAGE_KEY'])
+
+        const endpoint = CONFIG.LANGUAGE_ENDPOINT.replace(/\/$/, '')
+        const response = await fetch(
+          `${endpoint}/language/:analyze-text?api-version=2022-05-01`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Ocp-Apim-Subscription-Key': CONFIG.LANGUAGE_KEY
+            },
+            body: JSON.stringify({
+              kind: 'SentimentAnalysis',
+              parameters: {
+                modelVersion: 'latest',
+                opinionMining: true
+              },
+              analysisInput: {
+                documents: [
+                  {
+                    id: '1',
+                    language: 'en',
+                    text
+                  }
+                ]
+              }
+            })
+          }
+        )
+
+        const json = await response.json()
+        if (!response.ok) {
+          throw new Error(
+            json?.error?.message ||
+              json?.error ||
+              `Azure request failed (${response.status})`
+          )
+        }
+        return json
+      }
+
+      async function analyze() {
+        const text = input.value.trim()
+        errorEl.textContent = ''
+
+        if (!text) {
+          errorEl.textContent = 'Please enter some feedback first.'
+          return
+        }
+
+        analyzeBtn.disabled = true
+        analyzeBtn.textContent = 'Analyzing…'
+        clearSentences(true)
+
+        try {
+          const json = await callAzureSentiment(text)
+          const doc = json.results.documents[0]
+          const route = chooseRoute(doc)
+
+          renderTopStats(doc, route)
+          renderRoute(route)
+          renderConfidence(doc.confidenceScores || {})
+          renderSentences(doc.sentences || [])
+        } catch (err) {
+          routeBox.className = 'summary-box negative'
+          routeChip.className = 'badge negative'
+          routeChip.textContent = 'Error'
+          routeTitle.textContent = 'Something went wrong'
+          routeBody.textContent = 'The reflection could not be analyzed right now. Please try again.'
+          errorEl.textContent = err.message || 'Something went wrong.'
+
+          if (window.location.protocol === 'file:') {
+            errorEl.textContent +=
+              ' If the browser blocks this from file://, open the same HTML from one lightweight static host.'
+          }
+        } finally {
+          analyzeBtn.disabled = false
+          analyzeBtn.textContent = 'Analyze reflection'
+        }
+      }
+
+      function renderTopStats(doc, route) {
+        overallStat.textContent = capitalize(doc.sentiment)
+        feedbackModeStat.textContent = route.feedbackMode
+        topConfidenceStat.textContent = topScore(doc.confidenceScores || {})
+      }
+
+      function renderRoute(route) {
+        routeBox.className = `summary-box ${route.key}`
+        routeChip.className = `badge ${route.key}`
+        routeChip.textContent = route.chip
+        routeTitle.textContent = route.title
+        routeBody.textContent = route.body
+      }
+
+      function renderConfidence(scores) {
+        setScore(scorePositive, scorePositiveLabel, scores.positive ?? 0)
+        setScore(scoreNeutral, scoreNeutralLabel, scores.neutral ?? 0)
+        setScore(scoreNegative, scoreNegativeLabel, scores.negative ?? 0)
+      }
+
+      function setScore(bar, label, value) {
+        const pct = Math.round(value * 100)
+        bar.style.width = `${pct}%`
+        label.textContent = `${pct}%`
+      }
+
+      function renderSentences(sentenceList) {
+        sentences.innerHTML = ''
+
+        const items = sentenceList.slice(0, 2)
+        if (!items.length) {
+          sentences.innerHTML =
+            '<div class="empty-text">No standout lines were returned for this reflection.</div>'
+          return
+        }
+
+        items.forEach(sentence => {
+          const el = document.createElement('div')
+          el.className = 'highlight-pill'
+          el.textContent = sentence.text
+          sentences.appendChild(el)
+        })
+      }
+
+      function clearSentences(isLoading = false) {
+        sentences.innerHTML = `<div class="empty-text">${
+          isLoading ? 'Analyzing your reflection…' : 'Analyze one reflection to see the standout lines.'
+        }</div>`
+      }
+
+      function topScore(scores = {}) {
+        const vals = [
+          ['positive', scores.positive ?? 0],
+          ['neutral', scores.neutral ?? 0],
+          ['negative', scores.negative ?? 0]
+        ]
+        vals.sort((a, b) => b[1] - a[1])
+        return `${capitalize(vals[0][0])} ${Math.round(vals[0][1] * 100)}%`
+      }
+
+      function capitalize(value) {
+        return value.charAt(0).toUpperCase() + value.slice(1)
+      }
+    </script>
+  </body>
+</html>

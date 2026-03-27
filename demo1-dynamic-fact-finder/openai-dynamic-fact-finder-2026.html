@@ -1,0 +1,1563 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dynamic Fact Finder</title>
+    <style>
+      :root {
+        --bg: #f5f7fb;
+        --surface: rgba(255, 255, 255, 0.82);
+        --surface-strong: #ffffff;
+        --surface-soft: #f8fafc;
+        --text: #0f172a;
+        --muted: #475569;
+        --border: #dbe4f0;
+        --accent: #2563eb;
+        --accent-soft: #dbeafe;
+        --purple: #7c3aed;
+        --purple-soft: #ede9fe;
+        --gold: #a16207;
+        --gold-soft: #fef3c7;
+        --shadow: 0 18px 44px rgba(15, 23, 42, 0.08);
+        --radius-xl: 26px;
+        --radius-lg: 20px;
+        --radius-md: 16px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system,
+          BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        color: var(--text);
+        background: radial-gradient(
+            circle at top left,
+            rgba(37, 99, 235, 0.12),
+            transparent 28%
+          ),
+          radial-gradient(
+            circle at top right,
+            rgba(124, 58, 237, 0.08),
+            transparent 24%
+          ),
+          linear-gradient(180deg, #f8fbff 0%, #f4f7fb 100%);
+        min-height: 100vh;
+      }
+
+      .shell {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 28px;
+        position: relative;
+        isolation: isolate;
+        overflow: visible;
+      }
+
+      .hero {
+        margin-bottom: 20px;
+        position: relative;
+        z-index: 1;
+      }
+
+      .eyebrow {
+        margin: 0 0 10px;
+        font-size: 0.8rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--accent);
+        font-weight: 800;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(2rem, 3vw, 2.8rem);
+        line-height: 1.02;
+      }
+
+      .lede {
+        margin: 12px 0 0;
+        max-width: 760px;
+        color: var(--muted);
+        font-size: 1rem;
+        line-height: 1.55;
+      }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(10px);
+        position: relative;
+        overflow: visible;
+      }
+
+      .composer {
+        padding: 20px;
+        margin-bottom: 18px;
+        position: relative;
+        z-index: 50;
+        overflow: visible;
+      }
+
+      .composer-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) auto;
+        gap: 16px;
+        align-items: end;
+        position: relative;
+        z-index: 2;
+        overflow: visible;
+      }
+
+      .field-label {
+        display: block;
+        font-weight: 800;
+        margin-bottom: 8px;
+        font-size: 0.96rem;
+      }
+
+      .location-combobox {
+        position: relative;
+        z-index: 100;
+        overflow: visible;
+      }
+
+      input[type='text'] {
+        width: 100%;
+        padding: 15px 16px;
+        border-radius: 18px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.95);
+        color: var(--text);
+        font: inherit;
+        position: relative;
+        z-index: 2;
+      }
+
+      input[type='text']:focus {
+        outline: none;
+        border-color: #8ba3ff;
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+      }
+
+      .controls-right {
+        display: grid;
+        gap: 12px;
+        position: relative;
+        z-index: 2;
+      }
+
+      .chip-row,
+      .button-row,
+      .stats-row,
+      .badge-row,
+      .recent-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .chip-btn,
+      .primary,
+      .secondary,
+      .ghost {
+        appearance: none;
+        border: none;
+        border-radius: 999px;
+        padding: 11px 15px;
+        font-size: 0.95rem;
+        font-weight: 800;
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.15s ease,
+          opacity 0.15s ease;
+      }
+
+      .chip-btn:hover,
+      .primary:hover,
+      .secondary:hover,
+      .ghost:hover {
+        transform: translateY(-1px);
+      }
+
+      .chip-btn {
+        background: #e8eef8;
+        color: #0f172a;
+      }
+
+      .chip-btn.active {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+
+      .primary {
+        background: var(--accent);
+        color: white;
+        box-shadow: 0 12px 26px rgba(37, 99, 235, 0.24);
+      }
+
+      .secondary {
+        background: #e8eef8;
+        color: #0f172a;
+      }
+
+      .ghost {
+        background: #fff;
+        color: var(--muted);
+        border: 1px solid var(--border);
+      }
+
+      .chip-btn:disabled,
+      .primary:disabled,
+      .secondary:disabled,
+      .ghost:disabled {
+        opacity: 0.64;
+        cursor: default;
+        transform: none;
+      }
+
+      .status {
+        margin-top: 12px;
+        color: var(--muted);
+        font-size: 0.94rem;
+        min-height: 1.3em;
+        position: relative;
+        z-index: 1;
+      }
+
+      .stats {
+        padding: 0 2px 18px;
+        position: relative;
+        z-index: 1;
+      }
+
+      .stat-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 13px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.72);
+        border-radius: 999px;
+        font-size: 0.92rem;
+        color: var(--muted);
+      }
+
+      .stat-chip strong {
+        color: var(--text);
+      }
+
+      .result-card {
+        padding: 22px;
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.95) 0%,
+          rgba(248, 250, 252, 0.92) 100%
+        );
+        position: relative;
+        z-index: 1;
+        overflow: visible;
+      }
+
+      .hidden,
+      .is-hidden {
+        display: none !important;
+      }
+
+      .result-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 14px;
+        align-items: flex-start;
+        margin-bottom: 14px;
+        flex-wrap: wrap;
+      }
+
+      .headline {
+        margin: 0 0 8px;
+        font-size: clamp(1.55rem, 2.2vw, 2rem);
+        line-height: 1.15;
+      }
+
+      .fact-text {
+        margin: 0;
+        color: var(--text);
+        font-size: 1rem;
+        line-height: 1.62;
+        max-width: 760px;
+      }
+
+      .result-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px 12px;
+        border-radius: 999px;
+        font-size: 0.84rem;
+        font-weight: 800;
+        color: var(--purple);
+        background: var(--purple-soft);
+      }
+
+      .meta-grid {
+        margin-top: 18px;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .meta-card {
+        padding: 13px 14px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.8);
+      }
+
+      .meta-label {
+        color: var(--muted);
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 8px;
+      }
+
+      .meta-value {
+        font-size: 1rem;
+        font-weight: 700;
+        line-height: 1.35;
+      }
+
+      .action-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .section {
+        margin-top: 20px;
+      }
+
+      .section-title {
+        margin: 0 0 10px;
+        font-size: 0.96rem;
+        font-weight: 800;
+        color: var(--text);
+      }
+
+      .badge-chip {
+        background: var(--gold-soft);
+        color: var(--gold);
+        padding: 10px 12px;
+        border-radius: 14px;
+        font-weight: 800;
+        border: 1px solid rgba(161, 98, 7, 0.12);
+      }
+
+      .badge-chip.empty,
+      .recent-chip.empty {
+        background: #f8fafc;
+        color: #64748b;
+        border: 1px solid var(--border);
+      }
+
+      .recent-chip {
+        min-width: 180px;
+        max-width: 240px;
+        padding: 12px 13px;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.78);
+      }
+
+      .recent-k {
+        color: var(--muted);
+        font-size: 0.74rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 6px;
+      }
+
+      .recent-v {
+        font-size: 0.94rem;
+        font-weight: 700;
+        line-height: 1.35;
+      }
+
+      .map-reveal-card {
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.82);
+        border-radius: var(--radius-lg);
+        padding: 16px;
+      }
+
+      .map-reveal-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: start;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+      }
+
+      .map-reveal-kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 10px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 0.8rem;
+        font-weight: 800;
+      }
+
+      .map-frame {
+        position: relative;
+        width: min(100%, 320px);
+        aspect-ratio: 1;
+        border-radius: 18px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.1);
+        background: #eef4ff;
+      }
+
+      .map-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .map-pin {
+        position: absolute;
+        width: 24px;
+        height: 24px;
+        transform: translate(-50%, -100%);
+        filter: drop-shadow(0 3px 8px rgba(15, 23, 42, 0.25));
+        pointer-events: none;
+      }
+
+      .map-pin::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: #ef4444;
+        border-radius: 50% 50% 50% 0;
+        transform: rotate(-45deg);
+      }
+
+      .map-pin::after {
+        content: '';
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 10px;
+        height: 10px;
+        background: white;
+        border-radius: 999px;
+        transform: translate(-50%, -50%);
+        z-index: 1;
+      }
+
+      .map-caption {
+        margin-top: 10px;
+        color: var(--muted);
+        font-size: 0.9rem;
+        line-height: 1.45;
+        max-width: 540px;
+      }
+
+      .suggestions-dropdown {
+        list-style: none;
+        margin: 8px 0 0 0;
+        padding: 6px;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: white;
+        max-height: 240px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        box-shadow: 0 16px 40px rgba(31, 42, 68, 0.12);
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        right: 0;
+        z-index: 9999;
+      }
+
+      .suggestions-dropdown.hidden {
+        display: none;
+      }
+
+      .suggestion-item {
+        padding: 12px 14px;
+        cursor: pointer;
+        border-radius: 12px;
+        border: 1px solid transparent;
+        transition: background 0.15s ease, border-color 0.15s ease;
+      }
+
+      .suggestion-item:hover,
+      .suggestion-item.active {
+        background: #f3f6ff;
+        border-color: #d8e3ff;
+      }
+
+      .postcard-wrap {
+        position: relative;
+        margin-top: 12px;
+        max-width: 860px;
+      }
+
+      .postcard-image {
+        width: 100%;
+        height: auto;
+        display: block;
+        border-radius: 18px;
+        border: 1px solid var(--border);
+        box-shadow: 0 20px 50px rgba(15, 23, 42, 0.1);
+        background: white;
+      }
+
+      .postcard-map-inset {
+        position: absolute;
+        right: 18px;
+        top: 18px;
+        width: 156px;
+        aspect-ratio: 1;
+        border-radius: 18px;
+        overflow: hidden;
+        border: 4px solid rgba(255, 255, 255, 0.95);
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+        transform: rotate(3deg);
+        background: white;
+      }
+
+      .postcard-map-inset .map-frame {
+        width: 100%;
+        height: 100%;
+        max-width: none;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+      }
+
+      @media (max-width: 900px) {
+        .composer-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .controls-right {
+          align-items: start;
+        }
+
+        .meta-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 760px) {
+        .shell {
+          padding: 18px;
+        }
+
+        .postcard-map-inset {
+          width: 110px;
+          right: 12px;
+          top: 12px;
+          border-radius: 14px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="hero">
+        <p class="eyebrow">Mini Demo 1 · Dynamic Fact Rewards</p>
+        <h1>Dynamic Fact Finder</h1>
+        <p class="lede">
+          Pick a place and a vibe. The app generates a short AI-powered fact,
+          reveals a centered location snapshot after a couple of discoveries,
+          and unlocks collectible postcards once the loop is rolling.
+        </p>
+      </header>
+
+      <section class="card composer">
+        <div class="composer-grid">
+          <div>
+            <label class="field-label" for="locationInput"
+              >Choose a place</label
+            >
+            <div class="location-combobox">
+              <input
+                id="locationInput"
+                type="text"
+                placeholder="Example: Alexandria, Virginia"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded="false"
+                aria-controls="suggestionsDropdown"
+              />
+              <ul
+                id="suggestionsDropdown"
+                class="suggestions-dropdown hidden"
+                role="listbox"
+              ></ul>
+            </div>
+          </div>
+
+          <div class="controls-right">
+            <div>
+              <label class="field-label">Pick the fact vibe</label>
+              <div class="chip-row">
+                <button
+                  class="chip-btn active fact-btn"
+                  data-type="fun"
+                  type="button"
+                >
+                  Fun
+                </button>
+                <button
+                  class="chip-btn fact-btn"
+                  data-type="spooky"
+                  type="button"
+                >
+                  Spooky
+                </button>
+                <button
+                  class="chip-btn fact-btn"
+                  data-type="historical"
+                  type="button"
+                >
+                  Historical
+                </button>
+              </div>
+            </div>
+
+            <div class="button-row">
+              <button id="generateBtn" class="primary" type="button">
+                Generate fact
+              </button>
+              <button id="useLocationBtn" class="secondary" type="button">
+                Use my location
+              </button>
+              <button id="resetBtn" class="ghost" type="button">Reset</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="status" class="status">Ready.</div>
+      </section>
+
+      <section class="stats">
+        <div class="stats-row">
+          <div class="stat-chip">
+            <strong id="progressText">0 facts</strong>
+          </div>
+          <div class="stat-chip"><strong id="xpText">XP 0</strong></div>
+          <div class="stat-chip"><strong id="levelText">Level 1</strong></div>
+          <div class="stat-chip">
+            <strong id="unlockText">Map locked</strong>
+          </div>
+        </div>
+      </section>
+
+      <section id="result" class="card result-card hidden">
+        <div class="result-top">
+          <div>
+            <h2 class="headline" id="headline">Generated fact</h2>
+            <p class="fact-text" id="factText"></p>
+          </div>
+          <div class="result-pill" id="rewardPill">Reward pending</div>
+        </div>
+
+        <div class="meta-grid">
+          <div class="meta-card">
+            <div class="meta-label">Place</div>
+            <div class="meta-value" id="resolvedPlace">Waiting…</div>
+          </div>
+          <div class="meta-card">
+            <div class="meta-label">Vibe</div>
+            <div class="meta-value" id="factTypeValue">Fun</div>
+          </div>
+          <div class="meta-card">
+            <div class="meta-label">Progress</div>
+            <div class="meta-value" id="progressCue">
+              Generate a fact to start the loop.
+            </div>
+          </div>
+        </div>
+
+        <div class="action-row">
+          <button id="primaryActionBtn" class="secondary" type="button">
+            Generate another fact
+          </button>
+          <button id="postcardBtn" class="ghost is-hidden" type="button">
+            Generate postcard
+          </button>
+        </div>
+
+        <div class="section">
+          <h3 class="section-title">Earned badges</h3>
+          <div class="badge-row" id="badgesWrap">
+            <div class="badge-chip empty">No badges yet</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3 class="section-title">Recent discoveries</h3>
+          <div class="recent-list" id="recentWrap">
+            <div class="recent-chip empty">No discoveries yet</div>
+          </div>
+        </div>
+
+        <div id="mapRevealSection" class="section hidden">
+          <h3 class="section-title">Location snapshot</h3>
+          <div class="map-reveal-card">
+            <div class="map-reveal-top">
+              <div>
+                <div class="map-reveal-kicker" id="mapRevealKicker">
+                  Unlocked after 2 facts
+                </div>
+                <div class="map-caption" id="mapRevealText">
+                  Keep going to unlock a centered map snapshot of the place.
+                </div>
+              </div>
+            </div>
+
+            <div id="mapFrame" class="map-frame hidden">
+              <img
+                id="mapImage"
+                class="map-image"
+                alt="Centered map snapshot"
+              />
+              <div id="mapPin" class="map-pin"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="postcardSection" class="section hidden">
+          <h3 class="section-title">Collected postcard</h3>
+          <div id="postcardMount"></div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      const CONFIG = {
+        apiBase: 'http://localhost:8787/api'
+      }
+
+      const FACT_TYPE_LABELS = {
+        fun: 'Fun',
+        spooky: 'Spooky',
+        historical: 'Historical'
+      }
+
+      const locationInput = document.getElementById('locationInput')
+      const generateBtn = document.getElementById('generateBtn')
+      const useLocationBtn = document.getElementById('useLocationBtn')
+      const resetBtn = document.getElementById('resetBtn')
+      const primaryActionBtn = document.getElementById('primaryActionBtn')
+      const postcardBtn = document.getElementById('postcardBtn')
+
+      const statusEl = document.getElementById('status')
+      const progressTextEl = document.getElementById('progressText')
+      const xpTextEl = document.getElementById('xpText')
+      const levelTextEl = document.getElementById('levelText')
+      const unlockTextEl = document.getElementById('unlockText')
+
+      const resultEl = document.getElementById('result')
+      const headlineEl = document.getElementById('headline')
+      const factTextEl = document.getElementById('factText')
+      const rewardPillEl = document.getElementById('rewardPill')
+      const resolvedPlaceEl = document.getElementById('resolvedPlace')
+      const factTypeValueEl = document.getElementById('factTypeValue')
+      const progressCueEl = document.getElementById('progressCue')
+      const badgesWrapEl = document.getElementById('badgesWrap')
+      const recentWrapEl = document.getElementById('recentWrap')
+
+      const mapRevealSectionEl = document.getElementById('mapRevealSection')
+      const mapRevealKickerEl = document.getElementById('mapRevealKicker')
+      const mapRevealTextEl = document.getElementById('mapRevealText')
+      const mapFrameEl = document.getElementById('mapFrame')
+      const mapImageEl = document.getElementById('mapImage')
+      const mapPinEl = document.getElementById('mapPin')
+
+      const postcardSectionEl = document.getElementById('postcardSection')
+      const postcardMountEl = document.getElementById('postcardMount')
+
+      const suggestionsDropdownEl = document.getElementById(
+        'suggestionsDropdown'
+      )
+
+      function normalizeFactType(value = 'fun') {
+        const normalized = String(value || 'fun').toLowerCase()
+        if (normalized === 'scary') return 'spooky'
+        if (normalized === 'spooky') return 'spooky'
+        if (normalized === 'historical') return 'historical'
+        return 'fun'
+      }
+
+      function formatFactTypeLabel(value = 'fun') {
+        return FACT_TYPE_LABELS[normalizeFactType(value)] || 'Fun'
+      }
+
+      function getMapUnlocked() {
+        return factsDiscovered >= 2
+      }
+
+      function getPostcardUnlocked() {
+        return factsDiscovered >= 3 || postcardUnlocked
+      }
+
+      function getProgressCue() {
+        if (getPostcardUnlocked()) {
+          return 'Postcards are unlocked for any new fact.'
+        }
+
+        if (getMapUnlocked()) {
+          return currentDiscovery?.mapLocation
+            ? 'Map snapshot unlocked. One more fact unlocks postcards.'
+            : 'Map snapshot unlocked. Use a suggested place or current location for a map preview.'
+        }
+
+        if (factsDiscovered === 1) {
+          return 'Nice start. One more fact unlocks the map snapshot.'
+        }
+
+        return 'Generate a fact to start the loop.'
+      }
+
+      let selectedFactType = 'fun'
+      let selectedSuggestion = null
+      let isGeneratingPostcard = false
+      let isLoadingMapSnapshot = false
+
+      let factsDiscovered = Number(localStorage.getItem('factsDiscovered') || 0)
+      let postcardUnlocked =
+        localStorage.getItem('postcardUnlocked') === 'true' ||
+        factsDiscovered >= 3
+      let earnedBadges = JSON.parse(
+        localStorage.getItem('earnedBadges') || '[]'
+      )
+      let discoveriesHistory = JSON.parse(
+        localStorage.getItem('discoveriesHistory') ||
+          localStorage.getItem('beatHistory') ||
+          '[]'
+      )
+      let currentDiscovery = JSON.parse(
+        localStorage.getItem('currentDiscovery') || 'null'
+      )
+
+      let lastResolvedLabel = localStorage.getItem('lastResolvedLabel') || null
+      let lastResolvedLocation = JSON.parse(
+        localStorage.getItem('lastResolvedLocation') || 'null'
+      )
+      let latestMapSnapshot = null
+
+      if (
+        currentDiscovery &&
+        !currentDiscovery.mapLocation &&
+        currentDiscovery.location &&
+        lastResolvedLabel &&
+        currentDiscovery.location === lastResolvedLabel &&
+        lastResolvedLocation
+      ) {
+        currentDiscovery.mapLocation = lastResolvedLocation
+      }
+
+      function saveProgress() {
+        localStorage.setItem('factsDiscovered', String(factsDiscovered))
+        localStorage.setItem('postcardUnlocked', String(postcardUnlocked))
+        localStorage.setItem('earnedBadges', JSON.stringify(earnedBadges))
+        localStorage.setItem(
+          'discoveriesHistory',
+          JSON.stringify(discoveriesHistory)
+        )
+
+        if (currentDiscovery) {
+          localStorage.setItem(
+            'currentDiscovery',
+            JSON.stringify(currentDiscovery)
+          )
+        } else {
+          localStorage.removeItem('currentDiscovery')
+        }
+      }
+
+      function saveResolvedPlace(label, locationObj) {
+        lastResolvedLabel = label || null
+        lastResolvedLocation = locationObj || null
+
+        if (lastResolvedLabel) {
+          localStorage.setItem('lastResolvedLabel', lastResolvedLabel)
+        } else {
+          localStorage.removeItem('lastResolvedLabel')
+        }
+
+        if (lastResolvedLocation) {
+          localStorage.setItem(
+            'lastResolvedLocation',
+            JSON.stringify(lastResolvedLocation)
+          )
+        } else {
+          localStorage.removeItem('lastResolvedLocation')
+        }
+      }
+
+      function awardBadge(name) {
+        if (!earnedBadges.includes(name)) {
+          earnedBadges.push(name)
+          saveProgress()
+        }
+      }
+
+      function renderBadges() {
+        badgesWrapEl.innerHTML = ''
+
+        if (!earnedBadges.length) {
+          badgesWrapEl.innerHTML =
+            '<div class="badge-chip empty">No badges yet</div>'
+          return
+        }
+
+        earnedBadges.forEach(name => {
+          const chip = document.createElement('div')
+          chip.className = 'badge-chip'
+          chip.textContent = name
+          badgesWrapEl.appendChild(chip)
+        })
+      }
+
+      function renderRecentDiscoveries() {
+        recentWrapEl.innerHTML = ''
+
+        const recent = discoveriesHistory.slice(-4).reverse()
+
+        if (!recent.length) {
+          recentWrapEl.innerHTML =
+            '<div class="recent-chip empty">No discoveries yet</div>'
+          return
+        }
+
+        recent.forEach(item => {
+          const chip = document.createElement('div')
+          chip.className = 'recent-chip'
+          chip.innerHTML = `
+            <div class="recent-k">${formatFactTypeLabel(item.factType)}</div>
+            <div class="recent-v">${item.headline || 'Interesting fact'}</div>
+          `
+          recentWrapEl.appendChild(chip)
+        })
+      }
+
+      function clearPostcard() {
+        postcardMountEl.innerHTML = ''
+        postcardSectionEl.classList.add('hidden')
+      }
+
+      function renderMapSnapshot(snapshot) {
+        latestMapSnapshot = snapshot || null
+
+        if (!snapshot) {
+          mapImageEl.removeAttribute('src')
+          mapFrameEl.classList.add('hidden')
+          mapPinEl.style.display = 'none'
+          return
+        }
+
+        mapImageEl.src = snapshot.imageUrl
+        mapFrameEl.classList.remove('hidden')
+        mapPinEl.style.display = 'block'
+        mapPinEl.style.left = '50%'
+        mapPinEl.style.top = '50%'
+      }
+
+      function renderMapUnlockState() {
+        const mapUnlocked = getMapUnlocked()
+        mapRevealSectionEl.classList.toggle('hidden', !mapUnlocked)
+
+        if (!mapUnlocked) {
+          renderMapSnapshot(null)
+          mapRevealKickerEl.textContent = 'Unlocks after 2 facts'
+          mapRevealTextEl.textContent =
+            factsDiscovered === 1
+              ? 'One more fact reveals a centered map snapshot of this place.'
+              : 'Keep going to unlock a centered map snapshot of the place.'
+          return
+        }
+
+        mapRevealKickerEl.textContent = 'Map snapshot unlocked'
+
+        if (!currentDiscovery?.mapLocation) {
+          renderMapSnapshot(null)
+          mapRevealTextEl.textContent =
+            'Use a suggested place or your current location to reveal the centered map snapshot.'
+          return
+        }
+
+        if (latestMapSnapshot) {
+          mapRevealTextEl.textContent =
+            'A centered basemap snapshot now anchors the location.'
+        } else if (isLoadingMapSnapshot) {
+          mapRevealTextEl.textContent = 'Loading map snapshot...'
+        } else {
+          mapRevealTextEl.textContent =
+            'Map snapshot is ready to load for this location.'
+        }
+      }
+
+      function updateActionButtons() {
+        generateBtn.disabled = isGeneratingPostcard || isLoadingMapSnapshot
+        primaryActionBtn.disabled = isGeneratingPostcard || isLoadingMapSnapshot
+        postcardBtn.disabled = isGeneratingPostcard
+
+        primaryActionBtn.textContent =
+          factsDiscovered >= 2 && !getPostcardUnlocked()
+            ? 'Generate final unlock fact'
+            : 'Generate another fact'
+
+        postcardBtn.textContent = isGeneratingPostcard
+          ? 'Generating postcard...'
+          : 'Generate postcard'
+
+        postcardBtn.classList.toggle(
+          'is-hidden',
+          !(getPostcardUnlocked() && !!currentDiscovery)
+        )
+      }
+
+      function syncProgressUI() {
+        progressTextEl.textContent = `${factsDiscovered} fact${
+          factsDiscovered === 1 ? '' : 's'
+        }`
+        xpTextEl.textContent = `XP ${factsDiscovered * 10}`
+
+        let level = 'Level 1'
+        if (factsDiscovered >= 2) level = 'Level 2'
+        if (factsDiscovered >= 3) level = 'Level 3'
+        if (factsDiscovered >= 5) level = 'Level 4'
+        levelTextEl.textContent = level
+
+        if (getPostcardUnlocked()) {
+          unlockTextEl.textContent = 'Postcards unlocked'
+        } else if (getMapUnlocked()) {
+          unlockTextEl.textContent = 'Map unlocked'
+        } else {
+          unlockTextEl.textContent = 'Map locked'
+        }
+
+        if (factsDiscovered >= 1) awardBadge('First Find')
+        if (factsDiscovered >= 2) awardBadge('Map Reveal')
+        if (factsDiscovered >= 3) awardBadge('Postcard Mode')
+        if (factsDiscovered >= 5) awardBadge('Fact Collector')
+
+        renderBadges()
+        renderRecentDiscoveries()
+        renderMapUnlockState()
+        updateActionButtons()
+      }
+
+      function setSelectedFactType(type) {
+        selectedFactType = normalizeFactType(type)
+
+        document.querySelectorAll('.fact-btn').forEach(btn => {
+          btn.classList.remove('active')
+          if (normalizeFactType(btn.dataset.type) === selectedFactType) {
+            btn.classList.add('active')
+          }
+        })
+
+        factTypeValueEl.textContent = formatFactTypeLabel(selectedFactType)
+      }
+
+      function renderCurrentDiscovery() {
+        if (!currentDiscovery) return
+
+        headlineEl.textContent = currentDiscovery.headline || 'Generated fact'
+        factTextEl.textContent = currentDiscovery.fact || ''
+        rewardPillEl.textContent =
+          currentDiscovery.rewardLabel || 'Reward pending'
+        resolvedPlaceEl.textContent =
+          currentDiscovery.location || lastResolvedLabel || 'Waiting…'
+        factTypeValueEl.textContent = formatFactTypeLabel(
+          currentDiscovery.factType || selectedFactType
+        )
+        progressCueEl.textContent = getProgressCue()
+
+        resultEl.classList.remove('hidden')
+        renderMapUnlockState()
+      }
+
+      async function loadMapSnapshotForCurrentDiscovery() {
+        if (!getMapUnlocked() || !currentDiscovery?.mapLocation) {
+          renderMapUnlockState()
+          return
+        }
+
+        isLoadingMapSnapshot = true
+        latestMapSnapshot = null
+        updateActionButtons()
+        renderMapUnlockState()
+
+        try {
+          const response = await fetch(`${CONFIG.apiBase}/map-snapshot`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              location: currentDiscovery.location,
+              mapLocation: currentDiscovery.mapLocation,
+              factType: currentDiscovery.factType
+            })
+          })
+
+          const data = await response.json()
+
+          if (data?.snapshot) {
+            renderMapSnapshot(data.snapshot)
+            mapRevealTextEl.textContent =
+              'A centered basemap snapshot now anchors the location.'
+          } else {
+            renderMapSnapshot(null)
+            mapRevealTextEl.textContent =
+              'Map snapshot is unlocked, but could not load for this place right now.'
+          }
+        } catch (err) {
+          console.error(err)
+          renderMapSnapshot(null)
+          mapRevealTextEl.textContent =
+            'Map snapshot is unlocked, but could not load for this place right now.'
+        } finally {
+          isLoadingMapSnapshot = false
+          updateActionButtons()
+        }
+      }
+
+      function resetProgress() {
+        factsDiscovered = 0
+        postcardUnlocked = false
+        earnedBadges = []
+        discoveriesHistory = []
+        currentDiscovery = null
+        selectedSuggestion = null
+        latestMapSnapshot = null
+        isGeneratingPostcard = false
+        isLoadingMapSnapshot = false
+
+        saveResolvedPlace(null, null)
+
+        localStorage.removeItem('factsDiscovered')
+        localStorage.removeItem('postcardUnlocked')
+        localStorage.removeItem('earnedBadges')
+        localStorage.removeItem('discoveriesHistory')
+        localStorage.removeItem('beatHistory')
+        localStorage.removeItem('currentDiscovery')
+
+        clearPostcard()
+        renderMapSnapshot(null)
+        mapRevealSectionEl.classList.add('hidden')
+
+        resultEl.classList.add('hidden')
+        locationInput.value = ''
+        headlineEl.textContent = 'Generated fact'
+        factTextEl.textContent = ''
+        rewardPillEl.textContent = 'Reward pending'
+        resolvedPlaceEl.textContent = 'Waiting…'
+        factTypeValueEl.textContent = 'Fun'
+        progressCueEl.textContent = 'Generate a fact to start the loop.'
+        statusEl.textContent = 'Progress reset.'
+
+        syncProgressUI()
+      }
+
+      function renderLocationSuggestions(items) {
+        suggestionsDropdownEl.innerHTML = ''
+
+        if (!items.length) {
+          locationInput.setAttribute('aria-expanded', 'false')
+          suggestionsDropdownEl.classList.add('hidden')
+          return
+        }
+
+        items.forEach(item => {
+          const li = document.createElement('li')
+          li.textContent = item.text
+          li.className = 'suggestion-item'
+          li.setAttribute('role', 'option')
+
+          li.addEventListener('click', () => {
+            locationInput.value = item.text
+            selectedSuggestion = item
+            document
+              .querySelectorAll('.suggestion-item')
+              .forEach(el => el.classList.remove('active'))
+            li.classList.add('active')
+            suggestionsDropdownEl.classList.add('hidden')
+            locationInput.setAttribute('aria-expanded', 'false')
+            statusEl.textContent = `Selected place: ${item.text}`
+          })
+
+          suggestionsDropdownEl.appendChild(li)
+        })
+
+        locationInput.setAttribute('aria-expanded', 'true')
+        suggestionsDropdownEl.classList.remove('hidden')
+      }
+
+      async function fetchLocationSuggestions() {
+        const text = locationInput.value.trim()
+
+        if (selectedSuggestion && selectedSuggestion.text !== text) {
+          selectedSuggestion = null
+        }
+
+        if (text.length < 3) {
+          locationInput.setAttribute('aria-expanded', 'false')
+          suggestionsDropdownEl.classList.add('hidden')
+          return
+        }
+
+        try {
+          const response = await fetch(
+            `${CONFIG.apiBase}/suggest?text=${encodeURIComponent(text)}`
+          )
+
+          if (!response.ok) {
+            throw new Error(`Suggest returned ${response.status}`)
+          }
+
+          const data = await response.json()
+          renderLocationSuggestions(data.suggestions || [])
+        } catch (err) {
+          console.error('suggest error:', err)
+          suggestionsDropdownEl.classList.add('hidden')
+        }
+      }
+
+      async function resolveSelectedPlace() {
+        if (!selectedSuggestion) return null
+
+        const response = await fetch(`${CONFIG.apiBase}/resolve-place`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: selectedSuggestion.text,
+            magicKey: selectedSuggestion.magicKey
+          })
+        })
+
+        if (!response.ok) {
+          throw new Error(`Resolve returned ${response.status}`)
+        }
+
+        return response.json()
+      }
+
+      async function useCurrentLocation() {
+        if (!navigator.geolocation) {
+          statusEl.textContent = 'Geolocation is not supported in this browser.'
+          return
+        }
+
+        statusEl.textContent = 'Getting your location...'
+
+        navigator.geolocation.getCurrentPosition(
+          async position => {
+            try {
+              const lat = position.coords.latitude
+              const lon = position.coords.longitude
+
+              statusEl.textContent = 'Resolving current location...'
+
+              const response = await fetch(
+                `${CONFIG.apiBase}/reverse-geocode`,
+                {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ lat, lon })
+                }
+              )
+
+              if (!response.ok) {
+                throw new Error(`Reverse geocode returned ${response.status}`)
+              }
+
+              const data = await response.json()
+
+              if (data?.label) {
+                locationInput.value = data.label
+                selectedSuggestion = null
+                saveResolvedPlace(
+                  data.label,
+                  data.location || { x: lon, y: lat }
+                )
+                statusEl.textContent = `Using current location: ${data.label}`
+              } else {
+                statusEl.textContent = 'Could not resolve current location.'
+              }
+            } catch (err) {
+              console.error(err)
+              statusEl.textContent = `Error: ${err.message}`
+            }
+          },
+          error => {
+            console.error(error)
+            statusEl.textContent = `Location error: ${error.message}`
+          },
+          {
+            enableHighAccuracy: false,
+            timeout: 8000,
+            maximumAge: 60000
+          }
+        )
+      }
+
+      function getNextFactType(current) {
+        const normalized = normalizeFactType(current)
+        if (normalized === 'fun') return 'spooky'
+        if (normalized === 'spooky') return 'historical'
+        return 'fun'
+      }
+
+      async function handlePrimaryAction() {
+        const nextType = getNextFactType(selectedFactType)
+        setSelectedFactType(nextType)
+        statusEl.textContent = `Next up: ${formatFactTypeLabel(nextType)}`
+        await generateFact()
+      }
+
+      async function generateFact() {
+        let location = locationInput.value.trim()
+
+        if (!location) {
+          statusEl.textContent = 'Please choose a place first.'
+          return
+        }
+
+        if (isGeneratingPostcard || isLoadingMapSnapshot) return
+
+        clearPostcard()
+        latestMapSnapshot = null
+        renderMapSnapshot(null)
+        statusEl.textContent = 'Resolving place...'
+        resultEl.classList.add('hidden')
+
+        try {
+          let mapLocation = null
+
+          if (selectedSuggestion && selectedSuggestion.text === location) {
+            const resolved = await resolveSelectedPlace()
+
+            if (resolved?.found && resolved?.label) {
+              location = resolved.label
+              locationInput.value = resolved.label
+              mapLocation = resolved.location || null
+              saveResolvedPlace(resolved.label, resolved.location || null)
+              statusEl.textContent = `Resolved place: ${resolved.label}`
+            } else {
+              saveResolvedPlace(location, null)
+            }
+          } else if (
+            lastResolvedLabel &&
+            location === lastResolvedLabel &&
+            lastResolvedLocation
+          ) {
+            mapLocation = lastResolvedLocation
+          } else {
+            saveResolvedPlace(location, null)
+          }
+
+          statusEl.textContent = 'Generating fact...'
+
+          const response = await fetch(`${CONFIG.apiBase}/location-fact`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              location,
+              factType: selectedFactType
+            })
+          })
+
+          if (!response.ok) {
+            throw new Error(`Server returned ${response.status}`)
+          }
+
+          const data = await response.json()
+
+          currentDiscovery = {
+            location,
+            factType: normalizeFactType(data.factType || selectedFactType),
+            headline: data.headline || 'Generated fact',
+            fact: data.fact || '',
+            rewardLabel: data.rewardLabel || 'Unlocked',
+            mapLocation: mapLocation || null
+          }
+
+          discoveriesHistory.push(currentDiscovery)
+          discoveriesHistory = discoveriesHistory.slice(-12)
+
+          factsDiscovered += 1
+          if (factsDiscovered >= 3) postcardUnlocked = true
+
+          headlineEl.textContent = currentDiscovery.headline
+          factTextEl.textContent = currentDiscovery.fact
+          rewardPillEl.textContent = currentDiscovery.rewardLabel
+          resolvedPlaceEl.textContent = location
+          factTypeValueEl.textContent = formatFactTypeLabel(
+            currentDiscovery.factType
+          )
+          progressCueEl.textContent = getProgressCue()
+
+          saveProgress()
+          resultEl.classList.remove('hidden')
+          syncProgressUI()
+
+          if (getMapUnlocked() && currentDiscovery.mapLocation) {
+            await loadMapSnapshotForCurrentDiscovery()
+          } else {
+            renderMapUnlockState()
+          }
+
+          if (factsDiscovered === 2) {
+            statusEl.textContent = 'Fact generated. Map snapshot unlocked!'
+          } else if (factsDiscovered === 3) {
+            statusEl.textContent = 'Fact generated. Postcards unlocked!'
+          } else {
+            statusEl.textContent = 'Fact generated.'
+          }
+        } catch (err) {
+          console.error(err)
+          statusEl.textContent = `Error: ${err.message}`
+        }
+      }
+
+      function buildMapFrame(snapshot) {
+        if (!snapshot) return ''
+
+        return `
+          <div class="map-frame">
+            <img class="map-image" src="${snapshot.imageUrl}" alt="Centered map snapshot" />
+            <div class="map-pin" style="left:50%; top:50%;"></div>
+          </div>
+        `
+      }
+
+      async function generatePostcard() {
+        if (!getPostcardUnlocked()) {
+          statusEl.textContent = 'Discover 3 facts first to unlock postcards.'
+          return
+        }
+
+        if (!currentDiscovery) {
+          statusEl.textContent =
+            'Generate a fact first so there is something to turn into a postcard.'
+          return
+        }
+
+        const location =
+          currentDiscovery.location ||
+          lastResolvedLabel ||
+          locationInput.value.trim() ||
+          'Somewhere cool'
+
+        isGeneratingPostcard = true
+        updateActionButtons()
+        statusEl.textContent = 'Generating postcard...'
+
+        try {
+          const response = await fetch(`${CONFIG.apiBase}/postcard`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              location,
+              factType: currentDiscovery.factType,
+              currentDiscovery,
+              discoveries: discoveriesHistory.slice(-3),
+              mapLocation:
+                currentDiscovery.mapLocation || lastResolvedLocation || null
+            })
+          })
+
+          if (!response.ok) {
+            throw new Error(`Server returned ${response.status}`)
+          }
+
+          const data = await response.json()
+
+          postcardMountEl.innerHTML = ''
+
+          const postcardWrap = document.createElement('div')
+          postcardWrap.className = 'postcard-wrap'
+
+          const postcardImg = document.createElement('img')
+          postcardImg.src = data.imageUrl
+          postcardImg.alt = 'Generated postcard collectible'
+          postcardImg.className = 'postcard-image'
+          postcardWrap.appendChild(postcardImg)
+
+          if (data.mapSnapshot) {
+            latestMapSnapshot = data.mapSnapshot
+            const inset = document.createElement('div')
+            inset.className = 'postcard-map-inset'
+            inset.innerHTML = buildMapFrame(data.mapSnapshot)
+            postcardWrap.appendChild(inset)
+          }
+
+          postcardMountEl.appendChild(postcardWrap)
+          postcardSectionEl.classList.remove('hidden')
+
+          awardBadge('Collectible Maker')
+          saveProgress()
+          syncProgressUI()
+
+          progressCueEl.textContent = 'Postcard created for the current fact.'
+          statusEl.textContent = data.fallback
+            ? 'Postcard ready with built-in fallback.'
+            : 'Postcard ready!'
+        } catch (err) {
+          console.error(err)
+          statusEl.textContent = `Error: ${err.message}`
+        } finally {
+          isGeneratingPostcard = false
+          updateActionButtons()
+        }
+      }
+
+      syncProgressUI()
+      setSelectedFactType(selectedFactType)
+
+      if (currentDiscovery) {
+        locationInput.value = currentDiscovery.location || ''
+        setSelectedFactType(currentDiscovery.factType || 'fun')
+        renderCurrentDiscovery()
+
+        if (getMapUnlocked() && currentDiscovery.mapLocation) {
+          loadMapSnapshotForCurrentDiscovery()
+        }
+      }
+
+      document.querySelectorAll('.fact-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          setSelectedFactType(btn.dataset.type)
+          statusEl.textContent = `Selected vibe: ${formatFactTypeLabel(
+            selectedFactType
+          )}`
+        })
+      })
+
+      generateBtn.addEventListener('click', generateFact)
+      useLocationBtn.addEventListener('click', useCurrentLocation)
+      resetBtn.addEventListener('click', resetProgress)
+      primaryActionBtn.addEventListener('click', handlePrimaryAction)
+      postcardBtn.addEventListener('click', generatePostcard)
+      locationInput.addEventListener('input', fetchLocationSuggestions)
+    </script>
+  </body>
+</html>

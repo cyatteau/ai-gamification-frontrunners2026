@@ -1,0 +1,18 @@
+{
+  "name": "demo-1---openai",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dynamic-fact-finder-local-server-2026.js",
+  "scripts": {
+    "start": "node dynamic-fact-finder-local-server-2026.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "openai": "^6.32.0"
+  }
+}

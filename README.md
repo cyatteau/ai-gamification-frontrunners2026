@@ -24,7 +24,7 @@ The demo set includes examples using:
 
 ## Slides
 
-- [Slides PDF]()
+- [Slides PDF](https://github.com/cyatteau/ai-gamification-frontrunners2026/blob/main/Slides.pdf)
 
 ## Demos
 

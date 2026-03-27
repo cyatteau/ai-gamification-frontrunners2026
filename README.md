@@ -21,3 +21,68 @@ The demo set includes examples using:
 - **OpenAI** for structured generation
 - **Azure AI Language** for sentiment analysis
 - **TensorFlow.js** for browser-side adaptation
+
+## Slides
+
+- [Slides PDF]()
+
+## Demos
+
+### Demo 1: Dynamic Fact Finder
+A location-based demo that generates structured fact cards and lightweight rewards.
+
+Highlights:
+- place grounding with ArcGIS services
+- structured output for UI-friendly content
+- safe local-server setup for demo use
+
+### Demo 2: Sentiment-Aware Feedback
+A checkpoint-style demo that reacts to player tone and chooses a better feedback path.
+
+Highlights:
+- sentiment analysis on a short reflection
+- route selection based on tone
+- visible UI changes based on the result
+
+### Demo 3: Adaptive Challenge Tuning
+A browser-based demo that adjusts challenge level based on correctness, response time, and current difficulty.
+
+Highlights:
+- TensorFlow.js running in the browser
+- small local prediction loop
+- visible pacing changes in the UI
+
+### GeoExplorer
+A combined-app demo that brings multiple patterns into one experience.
+
+Highlights:
+- quiz mode with adaptive difficulty
+- sentiment mode with recap
+- badges, unlocks, and visible progression
+
+## Running locally
+
+Some demos in this repo are safe sharing versions for presentation and reference.
+
+If you want to run the local-server demo, create your own environment file and add your own credentials.
+
+Example:
+
+```bash
+cd demos/demo-1-dynamic-fact-finder
+npm install
+cp .env.example .env
+npm start
+```
+
+## Notes
+
+- This repo is intended for learning, presentation sharing, and experimentation.
+- Public versions do **not** include private production credentials.
+- If you want to run certain demos locally, use your own API keys and tokens.
+
+## Related docs
+
+- OpenAI recommends the **Responses API** for new projects: <https://developers.openai.com/api/docs/guides/migrate-to-responses/>
+- TensorFlow.js runs in the **browser or Node.js**: <https://www.tensorflow.org/js>
+
